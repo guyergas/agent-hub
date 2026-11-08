@@ -15,6 +15,7 @@
 <script>
 "use strict";
 const token = "__HUB_TOKEN__";
+const stages = {design:"אפיון עיצובי",draft:"תכנון ארכיטקטורה",ready:"מוכן או תלוי",running:"בפיתוח",review:"סקירה אחרי מימוש",done:"הושלם"};
 const roleNames = {product:"מנהל מוצר · Codex",content:"מנהל תוכן · Codex",architect:"ארכיטקט · Codex",designer:"מעצב · Codex",lead:"מנהל פיתוח · Claude",developer:"מפתח · Claude",reviewer:"סוקר קוד מרכזי · Codex",qa:"בודק · Claude"};
 const actionNames = {product:"מוצר נוצר",rules:"הגדרות מוצר עודכנו",rule_propose:"הוגשה הצעת כללים",rule_publish:"כללים נכנסו לתוקף",ceo:"יעדי מנכ״ל עודכנו",manager:"מנהל מוצר נוסף",task:"משימה נפתחה",priority:"עדיפות עודכנה",plan:"תוכנית ארכיטקטורה אושרה",start:"משימה שובצה",review:"גרסה הוגשה לסקירה",check:"סקירה נרשמה",done:"מיזוג תועד",release:"מועמד לגרסה נוצר",release_qa:"בדיקת גרסה נרשמה",release_approve:"גרסה אושרה",usage:"שימוש נרשם"};
 const ruleAreas = {architecture:["ארכיטקטורה","architect"],design:["מערכת עיצוב","designer"]};
