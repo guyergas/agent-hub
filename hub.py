@@ -332,8 +332,63 @@ def apply_domain_conclusion(state, product, action, data):
         item.update(status=outcome, decision=required(data, "decision"))
 
 
+def import_wordflow(state, data):
+    repo = "https://github.com/guyergas/wordflow"
+    profile = data.get("profile")
+    need(isinstance(profile, dict) and profile.get("repo") == repo, "נדרשת סקירת המאגר של WordFlow")
+    revision = require_commit(profile, "revision")
+    baseline = {key: required(profile, key) for key in ("context", "architecture", "design", "content_rules")}
+    required(profile, "version")
+    need(isinstance(profile.get("sections"), list) and isinstance(profile.get("files"), list),
+         "סקירת המאגר חסרה פרטים")
+    setup = dict(repository_mode="existing", base_branch="main", deployment_mode="pages",
+                 deployment_status="ready", database_mode="other", database_status="pending",
+                 database_reference="Firebase Realtime Database · סנכרון משפחתי")
+    def repository_root(product):
+        url = value(product, "repo").lower().split("?", 1)[0].split("#", 1)[0]
+        return "/".join(url.split("/")[:5]).removesuffix(".git")
+
+    matches = [p for p in state["products"] if repository_root(p) == repo]
+    if not matches:
+        matches = [p for p in state["products"] if p["name"].casefold() == "wordflow" and not value(p, "repo")]
+    need(len(matches) <= 1, "יש כמה כרטיסים לאותו ריפו של WordFlow. יש לאחד אותם לפני מילוי אוטומטי.")
+    if matches:
+        product = matches[0]
+    else:
+        name = "WordFlow"
+        if any(p["name"].casefold() == name.casefold() for p in state["products"]):
+            name += " (guyergas/wordflow)"
+        apply(state, dict(action="product", name=name, slots=DEFAULT_DEVELOPMENT_SLOTS, project_status="active"))
+        product = state["products"][-1]
+    previous = product.get("project_profile", {})
+    for key, text in baseline.items():
+        current = value(product, key)
+        published = key in RULE_OWNERS and rule_version(product, key)
+        if not published and (current in ("", "אין", "טרם הוגדר", "ללא", "מערכת לימוד למשפחה") or current == previous.get(key)):
+            product[key] = text
+    product["repo"] = repo
+    if not value(product, "site_url"):
+        product["site_url"] = "https://guyergas.github.io/wordflow/"
+    if product.get("content_mode", "off") == "off" and not value(product, "content_path"):
+        product.update(content_mode="repository", content_path="src/knowledge")
+    if not product.get("setup") or product["setup"] == previous.get("setup"):
+        product["setup"] = setup
+    else:
+        stored = product["setup"]
+        if stored.get("base_branch") == "main" and stored.get("deployment_mode") == "pages":
+            stored["deployment_status"] = "ready"
+        if stored.get("database_mode") == "other" and not stored.get("database_reference"):
+            stored["database_reference"] = setup["database_reference"]
+    product["project_profile"] = {**profile, "revision": revision, "setup": setup}
+    state["events"].insert(0, {"time": datetime.now(timezone.utc).isoformat(), "action": "wordflow_import",
+                               "product": product["id"], "task": ""})
+
+
 def apply(state, data):
     action = required(data, "action")
+    if action == "wordflow_import":
+        import_wordflow(state, data)
+        return
     if action == "ceo_ai_record":
         items = data.get("items")
         need(isinstance(items, list), "רשימת הצעות לא חוקית")
@@ -430,7 +485,7 @@ def apply(state, data):
         need(scope in ("product", "customer"), "סוג מנהל לא חוקי")
         customer = required(data, "customer") if scope == "customer" else ""
         product["managers"].append({"id": next_id(state, "PM"), "name": required(data, "name"), "scope": scope, "customer": customer, "context": required(data, "context")})
-    elif action in ("chat_open", "chat_send", "chat_forward"):
+    elif action in ("chat_open", "chat_customer", "chat_send", "chat_forward"):
         task = apply_chat(state, product, action, data)
     elif action == "agent_run":
         role = required(data, "role")
@@ -657,6 +712,9 @@ def packet(state, product_id, role, task_id, manager_id, request, release_id="",
     over = [key for key, limit in (("tokens", product["token_limit"]), ("cents", product["budget_cents"])) if limit and usage[key] >= limit]
     need(not over or role == "lead", "המוצר הגיע לסף השימוש שהוגדר")
     context = {key: product[key] for key in ("name", "repo", "context", "architecture", "design", "customer_voice")}
+    if product.get("project_profile"):
+        profile = product["project_profile"]
+        context["repository_profile"] = {key: profile[key] for key in ("revision", "version", "sections")}
     context.update(company_strategy=state.get("ceo", {}).get("strategy", ""), manager=manager, task=task, release=release, request=request, recorded_usage=usage, token_limit=product["token_limit"], budget_cents=product["budget_cents"])
     context["rule_versions"] = product.get("rule_versions", {})
     context["company_standards"] = adopted_company_standards(state, product)
@@ -694,7 +752,20 @@ def packet(state, product_id, role, task_id, manager_id, request, release_id="",
 
 def apply_chat(state, product, action, data):
     chats = product.setdefault("chats", [])
-    if action == "chat_open":
+    if action == "chat_customer":
+        customer = required(data, "customer")
+        need(len(customer) <= 120, "שם הלקוח ארוך מדי")
+        existing = next((chat for chat in chats if chat["customer"].casefold() == customer.casefold()), None)
+        if existing:
+            return None
+        manager = next((m for m in product["managers"] if m["scope"] == "customer" and
+                        m["customer"].casefold() == customer.casefold()), None)
+        if not manager:
+            manager = {"id": next_id(state, "PM"), "name": "מנהל מוצר · " + customer, "scope": "customer",
+                       "customer": customer, "context": "ניהול דרישות ומשוב עבור " + customer}
+            product["managers"].append(manager)
+        data = {**data, "manager": manager["id"]}
+    if action in ("chat_open", "chat_customer"):
         manager = lookup(product["managers"], required(data, "manager"))
         customer = manager["customer"] if manager["scope"] == "customer" else required(data, "customer")
         need(not any(c["manager"] == manager["id"] and c["customer"].casefold() == customer.casefold() for c in chats), "כבר יש שיחה למנהל המוצר וללקוח הזה")

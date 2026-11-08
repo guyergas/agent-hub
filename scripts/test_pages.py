@@ -114,3 +114,37 @@ assert call("/change", action="check", role="reviewer", result="pass", evidence=
 assert call("/change", action="check", role="qa", result="pass", evidence="Tests passed", **new)["payload"]
 assert call("/change", action="done", merged="c"*40, **new)["payload"]
 print("Shared code review, conditional design referral, and revision reset passed")
+
+# Filling a repository-backed project keeps the existing board, staff and decisions.
+state = {"seq": 0, "products": [], "events": []}
+review = next(iter(json.loads((source.parent / "pages/repository-reviews.json").read_text()).values()))
+profile = review["profile"]
+project = call("/change", action="product", name="wordflow", repo=profile["repo"] + "/settings/pages",
+               architecture="אין", design="כללי עיצוב שלי", slots=4, token_limit=2500)["payload"]["products"][0]
+pid = project["id"]
+call("/change", action="manager", product=pid, scope="customer", customer="Family", name="PM", context="Existing")
+call("/change", action="task", product=pid, title="Existing work", brief="Keep it", priority=1)
+for _ in range(2):
+    assert "payload" in call("/change", action="wordflow_import", profile=profile)
+project, = state["products"]
+assert project["id"] == pid and project["repo"] == profile["repo"]
+assert len(project["tasks"]) == len(project["managers"]) == 1
+assert project["slots"] == 4 and project["token_limit"] == 2500
+assert project["design"] == "כללי עיצוב שלי" and project["architecture"] == profile["architecture"]
+assert project["project_profile"]["revision"] == profile["revision"] and project["content_path"] == "src/knowledge"
+assert project["setup"]["deployment_status"] == "ready"
+assert "error" in call("/change", action="wordflow_import", profile={**profile, "revision": "invalid"})
+
+# Each new customer has one chat and one dedicated manager per project.
+for name in ("Family", " family ", "School", "SCHOOL"):
+    assert "payload" in call("/change", action="chat_customer", product=pid, customer=name)
+project, = state["products"]
+assert len(project["chats"]) == len(project["managers"]) == 2
+assert project["chats"][0]["manager"] == project["managers"][0]["id"]
+assert len({chat["manager"] for chat in project["chats"]}) == 2
+
+state = {"seq": 0, "products": [], "events": []}
+project = call("/change", action="wordflow_import", profile=profile)["payload"]["products"][0]
+assert project["name"] == "WordFlow" and project["project_status"] == "active"
+assert not project["tasks"] and not project["managers"]
+print("WordFlow import and per-customer chat routing passed")

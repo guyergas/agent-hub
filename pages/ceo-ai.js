@@ -45,7 +45,20 @@
       body:JSON.stringify({model:"gpt-6-sol",store:false,reasoning:{effort:"low"},...payload}),signal:AbortSignal.timeout(60000)
     });
     if(response.status===401) throw Error("OpenAI לא קיבל את מפתח ה־API.");
-    if(response.status===429) throw Error("OpenAI הגביל את הבקשה. בדוק את מכסת השימוש והחיוב בחשבון ה־API.");
+    if(response.status===429) {
+      const body=await response.json().catch(()=>({}));
+      const code=body?.error?.code;
+      const type=body?.error?.type;
+      if(["credit_balance_exhausted","insufficient_quota"].includes(code) || type==="insufficient_quota")
+        throw Error("מכסת ה־API הזמינה נגמרה או שאין יתרה פעילה. בדוק את מסך חיוב ה־API.");
+      if(["organization_spend_limit_exceeded","project_spend_limit_exceeded","organization_usage_limit_exceeded"].includes(code))
+        throw Error("הגעת למגבלת השימוש או ההוצאה של חשבון ה־API. בדוק את מגבלות החשבון.");
+      if(["rate_limit_exceeded","slow_down"].includes(code) || type==="rate_limit_error"){
+        const retry=Number(response.headers.get("Retry-After"));
+        throw Error("הגעת למגבלת הקצב של OpenAI. "+(retry>0?"נסה שוב בעוד "+Math.ceil(retry)+" שניות.":"המתן מעט ונסה שוב."));
+      }
+      throw Error("OpenAI החזיר הגבלת שימוש (429). בדוק את מצב החיוב ואת מגבלות החשבון.");
+    }
     if(!response.ok) throw Error("OpenAI לא השלים את הבקשה ("+response.status+").");
     const result=await response.json();
     const output=(result.output ?? []).flatMap(item=>item.content ?? []).filter(item=>item.type==="output_text").map(item=>item.text).join("");

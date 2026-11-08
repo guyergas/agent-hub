@@ -5,26 +5,28 @@
 <title>Agent Hub · לוח מנכ״ל</title>
 <style>
 :root{color-scheme:dark;--bg:#10171e;--panel:#19232e;--line:#344655;--ink:#f4f7fa;--muted:#bbcbd8;--accent:#83e2bb}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,sans-serif}header,main{max-width:1260px;margin:auto;padding:24px}header{display:flex;align-items:end;justify-content:space-between;gap:16px}h1,h2,h3,p{margin:0 0 8px}h1{font-size:clamp(32px,6vw,58px);line-height:1.1}h2{font-size:24px}h3{font-size:17px}small,.muted{color:var(--muted)}.brand{color:var(--accent);letter-spacing:.14em;font-weight:800}.row,.actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.actions{margin-top:12px}.panel,.card,dialog{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:16px}.panel{margin-bottom:16px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:12px}.board{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px}.lane{min-width:0;padding:10px;background:#131c25;border-radius:12px}.lane .card{margin-bottom:8px}.card p,.detail{white-space:pre-wrap;overflow-wrap:anywhere}.badge{padding:2px 8px;background:#263949;border-radius:20px;font-size:12px}.accent{color:var(--accent)}button,input,select,textarea{font:inherit;color:inherit}button{background:#263949;border:1px solid #466073;padding:6px 10px;border-radius:8px;cursor:pointer}button:hover{border-color:var(--accent)}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}button.primary{background:var(--accent);color:#10251c;border-color:var(--accent);font-weight:700}button[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}dialog{color:var(--ink);width:min(660px,94vw);max-height:90vh}dialog::backdrop{background:#000a}label{display:block;margin:10px 0}input,textarea,select{display:block;width:100%;background:#10171e;border:1px solid var(--line);border-radius:8px;padding:8px}textarea{min-height:76px}textarea.packet{min-height:250px;direction:ltr}.error{color:#ffb5ad}.message{min-height:24px;color:var(--accent)}summary{cursor:pointer;color:var(--muted)}code{direction:ltr;unicode-bidi:isolate;overflow-wrap:anywhere}@media(max-width:560px){header,main{padding:16px}header{align-items:start;flex-direction:column}}
+.message:empty{display:none}button,.project-tab{min-height:44px}a{color:var(--accent)}main{padding-top:8px}header h1{font-size:clamp(32px,6vw,48px)}.home-projects{grid-template-columns:repeat(auto-fill,minmax(min(100%,290px),1fr));margin-top:16px}.project-tile{text-align:start;padding:16px;background:var(--panel);border:1px solid var(--line);border-radius:15px;display:block;width:100%;min-width:0}.project-tile strong{display:block;font-size:21px;overflow-wrap:anywhere}.project-tile span{display:block;margin-top:5px;color:var(--muted)}.project-tab{flex:0 0 auto;display:inline-flex;align-items:center;padding:7px 12px;border:1px solid transparent;border-radius:8px;text-decoration:none;color:var(--muted)}.project-tab[aria-current=page]{border-color:var(--line);background:var(--panel);color:var(--accent)}.project-nav{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:16px}.quiet{background:transparent}.section-title{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px}.section-title h2{margin:0}.collapsed-task{margin:8px 0;padding:8px;background:var(--panel);border:1px solid var(--line);border-radius:9px}.collapsed-task summary,.management summary{color:var(--ink);overflow-wrap:anywhere}.collapsed-task .card{border:0;padding:12px 0 0;margin:0}.management>summary{font-weight:650}.management[open]>summary{margin-bottom:16px}.chat-messages{display:grid;gap:8px;margin-top:16px}.chat-messages article{padding:12px}.chat-messages article p:last-child{margin-bottom:0}.chat-compose textarea{margin:8px 0}.chat-compose button{margin-top:4px}@media(max-width:560px){header{gap:8px}main{padding-top:4px}.panel{padding:13px}.project-nav{gap:2px}.project-tab{padding-inline:9px}}
 </style>
 </head>
 <body>
-<header><div><div class="brand">AGENT HUB</div><h1 id="viewTitle">לוח מנכ״ל</h1><p class="muted" id="viewSubtitle">מוצרים, לקוחות, פיתוח וגרסאות</p></div><div class="row"><button id="ceoView" aria-pressed="true">מבט מנכ״ל</button><button id="customerView" aria-pressed="false">מבט לקוח</button><button id="codexEntry" class="primary" hidden>חיבור Codex</button><button class="primary" id="newProduct">מוצר חדש</button></div></header>
-<main><p class="message" role="status" id="status"></p><section id="overview" class="panel"></section><section id="workspace"></section></main>
+<header><div><div class="brand">AGENT HUB</div><h1 id="viewTitle">פרויקטים</h1><p class="muted" id="viewSubtitle">לוח מנכ״ל</p></div><div class="row"><button id="ceoView" class="quiet" hidden>כל הפרויקטים</button><button class="primary" id="newProduct">פרויקט חדש</button></div></header>
+<main><p class="message" role="status" id="status"></p><section id="overview"></section><section id="workspace"></section></main>
 <dialog id="modal"><h2 id="dialogTitle"></h2><form id="form"><div id="fields"></div><p id="error" class="error" role="alert"></p><div id="buttons" class="actions"></div></form></dialog>
 <script>
 "use strict";
 const token = "__HUB_TOKEN__";
-const stages = {design:"אפיון עיצובי",draft:"תכנון ארכיטקטורה",ready:"מוכן או תלוי",running:"בפיתוח",review:"סקירה אחרי מימוש",done:"הושלם"};
 const roleNames = {product:"מנהל מוצר · Codex",content:"מנהל תוכן · Codex",architect:"ארכיטקט · Codex",designer:"מעצב · Codex",lead:"מנהל פיתוח · Claude",developer:"מפתח · Claude",reviewer:"סוקר קוד מרכזי · Codex",qa:"בודק · Claude"};
 const actionNames = {product:"מוצר נוצר",rules:"הגדרות מוצר עודכנו",rule_propose:"הוגשה הצעת כללים",rule_publish:"כללים נכנסו לתוקף",ceo:"יעדי מנכ״ל עודכנו",manager:"מנהל מוצר נוסף",task:"משימה נפתחה",priority:"עדיפות עודכנה",plan:"תוכנית ארכיטקטורה אושרה",start:"משימה שובצה",review:"גרסה הוגשה לסקירה",check:"סקירה נרשמה",done:"מיזוג תועד",release:"מועמד לגרסה נוצר",release_qa:"בדיקת גרסה נרשמה",release_approve:"גרסה אושרה",usage:"שימוש נרשם"};
 const ruleAreas = {architecture:["ארכיטקטורה","architect"],design:["מערכת עיצוב","designer"]};
 const companyAreas={design:"מנהל עיצוב ראשי",architecture:"ארכיטקט ראשי",product:"מנהל מוצר ראשי"};
-let state, selected, view="ceo", activeChat, polling=false;
+let state, selected, projectTab="board", activeChat, polling=false;
+const projectTabs={board:"משימות",chats:"שיחות לקוחות",details:"פרטי הפרויקט"};
+const chatDrafts=new Map();
 Object.assign(actionNames,{chat_open:"שיחת לקוח נפתחה",chat_send:"הודעה נשלחה למנהל המוצר",chat_forward:"דרישה הועברה ללוח",agent_run:"הרצת סוכן הוכנסה לתור",design_spec:"אפיון עיצובי אושר והועבר לארכיטקטורה",content_draft:"טיוטת תוכן הועברה למנהל המוצר",content_publish:"פרסום תוכן תועד"});
 Object.assign(actionNames,{takeover_open:"קליטת פרויקט קיים החלה",takeover_brief:"תקציר מוצר אושר לסקירת קוד",takeover_retry:"סקירת קליטה הוכנסה לתור",takeover_approve:"בסיס הפרויקט אושר לניהול"});
 Object.assign(actionNames,{company_owner:"מונה מנהל תחום",company_propose:"הוגשה הצעה למסמך החברה",company_review:"סקירת חברה הוכנסה לתור",company_publish:"פורסמה גרסת חברה",company_adopt:"המוצר אימץ גרסת חברה"});
 Object.assign(actionNames,{domain_submit:"מסקנה הועברה למנהל התחום",domain_run:"סקירת מסקנה הוכנסה לתור",domain_decide:"המלצת מנהל התחום תועדה"});
-Object.assign(actionNames,{ceo_ai_accept:"הצעת המנכ״ל הפכה למשימה"});
+Object.assign(actionNames,{ceo_ai_accept:"הצעת המנכ״ל הפכה למשימה",wordflow_import:"פרטי WordFlow מולאו מהמאגר",chat_customer:"שיחת לקוח נפתחה"});
 const byId = id => document.getElementById(id);
 const make = (tag, text="", cls="") => {
   const node = document.createElement(tag);
@@ -89,7 +91,7 @@ function form(title, fields, onSubmit, controls={}) {
 function edit(action,title,fields,base={}) {
   form(title,fields,async data=>{
     state = await api("/change",{product:selected,...base,...data,action});
-    if (action === "product") selected = state.products.at(-1).id;
+    if (action === "product") navigate(state.products.at(-1).id);
     if (action === "chat_open") activeChat=state.products.find(p=>p.id===(base.product || selected)).chats.at(-1).id;
     byId("modal").close();
     byId("status").textContent = actionNames[action];
@@ -150,9 +152,8 @@ function projectSetup(p) {
     const name=draft.name.trim().toLowerCase();
     const existing=state.products.find(project=>repo && githubRepoUrl(project.repo).toLowerCase()===repo);
     if(existing){
-      selected=existing.id;
       byId("modal").close();
-      render();
+      navigate(existing.id);
       byId("status").textContent=existing.name+" כבר בלוח. פתחתי את הכרטיס שלו.";
       return true;
     }
@@ -211,8 +212,8 @@ function projectSetup(p) {
         token_limit:p?.token_limit ?? 0,budget_cents:p?.budget_cents ?? 0,
         project_status:p?.project_status ?? "planning"
       });
-      selected=p?.id ?? state.products.at(-1).id;
       byId("modal").close();
+      navigate(p?.id ?? state.products.at(-1).id,p?"details":"board");
       byId("status").textContent=p?"תשתית הפרויקט עודכנה":"הפרויקט נוצר";
       render();
     },{intro:info,submit:step===names.length-1?"שמירת פרויקט":"המשך",busy:step===names.length-1?"שומר פרויקט…":null,back:step?()=>{
@@ -264,53 +265,85 @@ function getPacket(p,t,release,ruleArea,fixedRole) {
     },"primary"),btn("סגירה",()=>byId("modal").close()));
   });
 }
-function renderCustomer(overview, workspace) {
-  const entries=state.products.flatMap(product=>(product.chats ?? []).map(chat=>({product,chat})));
-  overview.replaceChildren(make("h2","שיחות עם מנהלי מוצר"),make("p","בכל שיחה אתה מייצג לקוח מסוים של מוצר מסוים.","muted"));
-  const eligible=state.products.filter(p=>p.managers.length);
-  const shortcuts=make("div","","actions");
-  for(const p of eligible) shortcuts.append(btn("שיחה חדשה · "+p.name,()=>edit("chat_open","שיחה חדשה · "+p.name,[
-    options("manager","מנהל המוצר",p.managers.map(m=>[m.id,m.name+(m.customer?" · "+m.customer:"")]),p.managers[0].id),
-    field("customer","שם הלקוח (למנהל שאחראי למוצר כולו)")
-  ],{product:p.id})));
-  overview.append(shortcuts);
-  if(!eligible.length) overview.append(make("p","פתח מוצר והוסף מנהל מוצר במבט מנכ״ל.","muted"));
+function projectChats(product) {
+  const chats=product.chats ?? [];
+  const current=chats.find(chat=>chat.id===activeChat) ?? chats[0];
+  const section=make("section","","panel");
+  const title=make("div","","section-title");
+  title.append(make("h2","שיחות לקוחות"),btn("לקוח חדש",()=>form("שיחה עם לקוח",[
+    field("customer","שם הלקוח")
+  ],async data=>{
+    const customer=data.customer.trim();
+    if(!customer) throw Error("הזן שם לקוח.");
+    state=await api("/change",{action:"chat_customer",product:product.id,customer});
+    const updated=state.products.find(p=>p.id===product.id);
+    activeChat=updated.chats.find(chat=>chat.customer.toLowerCase()===customer.toLowerCase())?.id;
+    byId("modal").close();
+    render();
+  },{submit:"פתיחת שיחה"}),"primary"));
+  section.append(title,make("p","בכל שיחה אתה מייצג לקוח. למנהל המוצר של הלקוח יש את ההקשר של הפרויקט והשיחה.","muted"));
+  if(!current) {
+    section.append(make("p","פתח שיחה לפי שם הלקוח כדי להעביר משוב או לבקש שינוי."));
+    return section;
+  }
   const tabs=make("div","","actions");
-  const current=entries.find(e=>e.chat.id===activeChat) ?? entries[0];
-  for(const {product,chat} of entries) {
+  for(const chat of chats) {
     const manager=product.managers.find(m=>m.id===chat.manager);
-    const tab=btn(product.name+" · "+chat.customer+" · "+manager.name,()=>{activeChat=chat.id;render();});
-    tab.setAttribute("aria-pressed",String(chat.id===current?.chat.id));
+    const duplicate=chats.filter(other=>other.customer===chat.customer).length>1;
+    const tab=btn(duplicate?chat.customer+" · "+manager?.name:chat.customer,()=>{activeChat=chat.id;render();});
+    tab.setAttribute("aria-pressed",String(chat.id===current.id));
     tabs.append(tab);
   }
-  overview.append(tabs);
-  workspace.replaceChildren();
-  if(!current) return;
-  const {product,chat}=current;
-  const manager=product.managers.find(m=>m.id===chat.manager);
-  const section=make("section","","panel"), messages=make("div","","grid");
-  messages.style.gridTemplateColumns="1fr";
-  section.append(make("h2",chat.customer+" · "+product.name),make("p","מנהל מוצר · "+manager.name+" · Codex","muted"));
-  for(const msg of chat.messages) {
+  const manager=product.managers.find(m=>m.id===current.manager);
+  const messages=make("div","","chat-messages");
+  for(const msg of current.messages) {
     const card=make("article","","card");
-    card.append(make("h3",msg.role==="customer"?chat.customer:msg.role==="manager"?manager.name:"הודעת מערכת"),make("p",msg.text));
+    card.append(make("h3",msg.role==="customer"?current.customer:msg.role==="manager"?manager?.name || "מנהל המוצר":"הודעת מערכת"),make("p",msg.text));
     messages.append(card);
   }
-  section.append(messages);
-  const pending=(product.jobs ?? []).some(j=>j.chat===chat.id && ["queued","running"].includes(j.status));
-  if(pending) section.append(make("p","מנהל המוצר מעבד את ההודעה…","muted"));
-  if(!state.providers?.enabled) section.append(make("p","כדי לשלוח הודעות, הפעל את החיבור לסוכנים לפי ההוראות.","muted"));
-  const actions=make("div","","actions");
-  const send=btn("שלח הודעה",()=>edit("chat_send","הודעה אל "+manager.name,[area("message","מה תרצה לספר או לבקש כלקוח?")],{product:product.id,chat:chat.id}),"primary");
+  section.append(tabs,messages);
+  const jobs=(product.jobs ?? []).filter(j=>j.chat===current.id);
+  const pending=jobs.some(j=>["queued","running"].includes(j.status));
+  if(pending) section.append(make("p","מנהל המוצר מכין תשובה…","muted"));
+  if(jobs.at(-1)?.status==="failed" && current.messages.at(-1)?.text!==jobs.at(-1).error)
+    section.append(make("p",jobs.at(-1).error || "מנהל המוצר לא הצליח להשיב. ההודעה נשמרה.","error"));
+  if(!state.providers?.enabled){
+    section.append(make("p","כדי לקבל תשובה ממנהל המוצר צריך לחבר את OpenAI.","muted"));
+    if(window.AgentHubAI) section.append(btn("חיבור OpenAI",connectCodex));
+  }
+  const composer=make("form","","chat-compose");
+  const label=make("label","הודעה למנהל המוצר"), input=make("textarea");
+  input.placeholder="מה הלקוח רוצה לשנות או לספר?";
+  input.value=chatDrafts.get(current.id) || "";
+  input.required=true;
+  input.maxLength=12000;
+  input.oninput=()=>chatDrafts.set(current.id,input.value);
+  label.append(input);
+  const send=make("button","שליחה","primary");
   send.disabled=pending || !state.providers?.enabled;
-  actions.append(send);
-  const reply=chat.messages.filter(m=>m.role==="manager").at(-1)?.text ?? "";
-  actions.append(btn("העבר דרישה ללוח",()=>edit("chat_forward","דרישה מהשיחה · "+chat.customer,[
-    field("title","כותרת הפיצ׳ר"),area("brief","דרישה וקריטריוני קבלה",reply),
-    taskArea(product),
-    num("priority","עדיפות (0 דחוף, 4 נמוך)",2)
-  ],{product:product.id,chat:chat.id})));
-  section.append(actions);workspace.append(section);
+  const error=make("p","","error");
+  error.setAttribute("role","alert");
+  composer.append(label,send,error);
+  composer.onsubmit=async event=>{
+    event.preventDefault();
+    if(send.disabled) return;
+    const message=input.value.trim();
+    if(!message) return;
+    send.disabled=true;
+    try {
+      state=await api("/change",{action:"chat_send",product:product.id,chat:current.id,message});
+      chatDrafts.delete(current.id);
+      render();
+    } catch(problem){error.textContent=problem.message;send.disabled=false;}
+  };
+  section.append(composer);
+  if(current.messages.length){
+    const reply=current.messages.filter(m=>m.role==="manager").at(-1)?.text ?? current.messages.filter(m=>m.role==="customer").at(-1)?.text ?? "";
+    section.append(btn("פתיחת משימה מהשיחה",()=>edit("chat_forward","משימה מהשיחה · "+current.customer,[
+      field("title","מה צריך לעשות?"),area("brief","פרטים",reply),taskArea(product)
+    ],{product:product.id,chat:current.id,priority:2})));
+  }
+  return section;
 }
 function agentRuns(p) {
   const section=make("section","","panel");
@@ -658,7 +691,7 @@ function ceoAI() {
   const ai=window.AgentHubAI;
   const section=make("details","","panel");
   section.id="ceoAiPanel";
-  section.append(make("summary","שיחת מנכ״ל · Codex"));
+  section.append(make("summary","שיחת מנכ״ל עם AI"));
   const actions=make("div","","actions");
   section.append(make("p",ai.connected?"ספר מה תרצה לקדם. Codex יציע למי להעביר ומה לפתוח בלוח.":"חבר מפתח API של OpenAI כדי להפעיל את שיחת המנכ״ל ואת סוכני Codex.","muted"));
   if(!ai.connected){
@@ -686,8 +719,11 @@ function ceoAI() {
       }catch(error){byId("status").textContent=error.message;}
     }));
   }
-  section.open=ai.connected;
-  section.append(actions);
+  const help=make("div","","actions");
+  help.append(setupLink("חיוב OpenAI API","https://platform.openai.com/settings/organization/billing/overview"),
+    setupLink("שימוש ב־API","https://platform.openai.com/usage"),
+    setupLink("מגבלות API","https://platform.openai.com/settings/organization/limits"));
+  section.append(actions,help);
   for(const turn of (state.ceo_ai ?? []).slice(-12).reverse()){
     const card=make("article","","card");
     card.append(make("h3","אתה"),make("p",turn.message,"detail"),make("h3","Codex"),make("p",turn.reply,"detail"));
@@ -701,84 +737,137 @@ function ceoAI() {
   }
   return section;
 }
-function render() {
-  const overview=byId("overview"), workspace=byId("workspace");
-  byId("viewTitle").textContent=view==="ceo"?"לוח מנכ״ל":"מבט לקוח";
-  byId("viewSubtitle").textContent=view==="ceo"?"מוצרים, לקוחות, פיתוח וגרסאות":"שיחות לפי מוצר, לקוח ומנהל מוצר";
-  byId("ceoView").setAttribute("aria-pressed",String(view==="ceo"));
-  byId("customerView").setAttribute("aria-pressed",String(view==="customer"));
-  byId("codexEntry").hidden=!window.AgentHubAI || view==="customer";
-  byId("codexEntry").textContent=window.AgentHubAI?.connected?"שיחת מנכ״ל · Codex":"חיבור Codex";
-  byId("newProduct").hidden=view==="customer";
-  if(view==="customer"){renderCustomer(overview,workspace);return;}
-  overview.replaceChildren(make("h2","תמונת מצב"));
-  const ceo=state.ceo ?? {};
-  overview.append(make("p",ceo.strategy || "הגדר כיוון עסקי ותעד את קול הלקוחות.","detail"));
-  if (ceo.customer_voice) overview.append(make("p",ceo.customer_voice,"detail muted"));
-  const tabs=make("div","","actions");
-  tabs.append(btn("יעדי מנכ״ל וקיבולת צוות",()=>edit("ceo","יעדי מנכ״ל וקיבולת צוות",[
-    area("strategy","יעדים והחלטות עסקיות",ceo.strategy),
-    area("customer_voice","משוב ועמדת הלקוחות ברמת החברה",ceo.customer_voice),
-    num("development_slots","מקומות עבודה פעילים לכל המוצרים יחד",state.development_portfolio.slots)
-  ])));
-  for (const product of state.products) {
-    const b=btn(product.name+" · "+projectStatus(product)+" · "+product.tasks.filter(t=>t.state!=="done").length+" פתוחות",()=>{selected=product.id;render();});
-    b.setAttribute("aria-pressed",String(product.id===selected)); tabs.append(b);
+function management(title,...items) {
+  const details=make("details","","panel management");
+  details.append(make("summary",title),...items);
+  return details;
+}
+function navigate(id, tab="board") {
+  const hash=id?"#project/"+encodeURIComponent(id)+"/"+tab:"";
+  if(location.hash!==hash) history.pushState(null,"",hash || location.pathname+location.search);
+  readRoute();
+}
+function readRoute() {
+  if(!state) return;
+  const parts=location.hash.match(/^#project\/([^/]+)\/(board|chats|details)$/);
+  selected=state.products.find(p=>parts && encodeURIComponent(p.id)===parts[1])?.id;
+  projectTab=selected?parts[2]:"board";
+  render();
+}
+function newProject() {
+  const intro=make("p","כדי לפתוח לוח מספיק שם. אפשר להוסיף ריפו ותשתית גם בהמשך.","muted");
+  if(window.AgentHubPages) intro.append(make("br"),btn("מלא את WordFlow מהריפו",event=>importWordflow(event.currentTarget)));
+  form("פרויקט חדש",[field("name","שם הפרויקט"),field("repo","קישור לריפו ב־GitHub (אופציונלי)","url")],async data=>{
+    const repo=githubRepoUrl(data.repo);
+    if(data.repo && !repo) throw Error("הזן קישור לריפו ב־GitHub.");
+    const existing=state.products.find(p=>repo && githubRepoUrl(p.repo).toLowerCase()===repo.toLowerCase());
+    if(!existing) state=await api("/change",{action:"product",name:data.name,repo,slots:2,project_status:"planning"});
+    byId("modal").close();
+    navigate(existing?.id ?? state.products.at(-1).id);
+  },{intro,submit:"פתיחת לוח"});
+}
+async function importWordflow(button) {
+  button.disabled=true;
+  byId("status").textContent="ממלא את WordFlow מסקירת המאגר…";
+  try {
+    const response=await fetch("./repository-reviews.json");
+    if(!response.ok) throw Error("סקירת המאגר לא נטענה. נסה שוב.");
+    const reviews=await response.json();
+    const profile=Object.values(reviews).find(review=>review.profile?.repo==="https://github.com/guyergas/wordflow")?.profile;
+    if(!profile) throw Error("סקירת WordFlow עדיין אינה זמינה.");
+    state=await api("/change",{action:"wordflow_import",profile});
+    const imported=state.events.find(event=>event.action==="wordflow_import");
+    if(byId("modal").open) byId("modal").close();
+    navigate(imported.product,"details");
+    byId("status").textContent=actionNames.wordflow_import;
+  } catch(error) {
+    byId("status").textContent=error.message;
+    if(byId("modal").open) byId("error").textContent=error.message;
+  } finally {button.disabled=false;}
+}
+function projectOverview(p) {
+  const panel=make("section","","panel");
+  panel.append(make("h2","סקירת פרויקט"),make("p",p.context || "אפשר להוסיף תיאור קצר בהגדרות הפרויקט.","detail"),projectLinks(p));
+  const profile=p.project_profile;
+  if(profile){
+    const sources=make("div","","actions");
+    const source=profile.repo+"/blob/"+profile.revision+"/";
+    sources.append(setupLink("גרסה "+profile.version+" · "+profile.revision.slice(0,7),profile.repo+"/commit/"+profile.revision));
+    for(const [label,file] of profile.files) sources.append(setupLink(label,source+file));
+    panel.append(sources);
+    for(const item of profile.sections) panel.append(make("h3",item.title),make("p",item.text,"detail"));
+  } else if(window.AgentHubPages && githubRepoUrl(p.repo).toLowerCase()==="https://github.com/guyergas/wordflow") {
+    panel.append(btn("מלא את WordFlow מהריפו",event=>importWordflow(event.currentTarget),"primary"));
   }
-  overview.append(tabs);
-  if(state.products.length) overview.append(sharedDevelopment());
-  overview.append(companyStandards());
-  if(window.AgentHubAI) overview.prepend(ceoAI());
-  workspace.replaceChildren();
-  const p=state.products.find(p=>p.id===selected);
-  if (!p) {
-    workspace.append(make("section","פתח מוצר ראשון, הגדר את הארכיטקטורה והעיצוב שלו, ושייך אליו מנהל מוצר.","panel"));
-    return;
-  }
-  const head=make("section","","panel"), actions=make("div","","actions");
-  const release=p.releases.at(-1);
-  head.append(make("p",[projectStatus(p),p.takeover && p.takeover.status!=="approved"?"קליטה בתהליך":"",
-    p.tasks.filter(t=>t.state==="running").length+" במימוש",p.tasks.filter(t=>t.state==="review").length+" בסקירה",
-    release?"גרסה "+release.name+" · "+(release.approved?"אושרה לפרסום":release.qa?"ממתינה לאישור":"ממתינה ל־QA"):""].filter(Boolean).join(" · "),"accent"),projectLinks(p));
+  return panel;
+}
+function projectSettings(p) {
+  const panel=make("section","","panel");
   const used=p.runs.reduce((a,r)=>({tokens:a.tokens+r.tokens,cents:a.cents+r.cents}),{tokens:0,cents:0});
-  head.append(make("h2",p.name),make("p",p.context,"detail"),make("p",used.tokens.toLocaleString("he")+" טוקנים מדווחים"+(p.token_limit?" / "+p.token_limit.toLocaleString("he"):"")+" · $"+(used.cents/100).toFixed(2)+(p.budget_cents?" / $"+(p.budget_cents/100).toFixed(2):"")+" · "+p.slots+" מקומות פיתוח","muted"));
-  const rules=make("details");rules.append(make("summary","מאגר וקול הלקוחות"));
-  for(const [label,content] of [["מאגר",p.repo],["קול הלקוחות",p.customer_voice]]) rules.append(make("h3",label),make("p",content||"טרם הוגדר","detail"));
-  head.append(rules);
-  if(p.setup){
-    const summary=[
-      p.repo?"ריפו הוגדר":"ריפו ממתין להשלמה",
-      "ענף "+p.setup.base_branch,
-      "פריסה · "+setupNames.deployment[p.setup.deployment_mode]+(p.setup.deployment_mode==="none"?"":p.setup.deployment_status==="ready"?" · הושלמה":" · ממתינה"),
-      "נתונים · "+setupNames.database[p.setup.database_mode]+(["d1","other"].includes(p.setup.database_mode)?p.setup.database_status==="ready"?" · הוקם":" · ממתין":"")
-    ];
-    if(p.setup.database_reference) summary.push(p.setup.database_reference);
-    head.append(make("p",summary.join(" | "),"detail muted"));
-  }
-  actions.append(btn("הגדרות ותקציב",()=>productForm(p)),btn("חבילה לסוכן",()=>getPacket(p)),btn("פתיחת משימה",()=>addTask(p),"primary"),
-    btn("רישום שימוש",()=>edit("usage","רישום שימוש מספק",[options("role","תפקיד",roles,"lead"),num("tokens","טוקנים שנצרכו"),num("cents","עלות בסנטים"),field("reference","מזהה ריצה / אסמכתה")])));
-  actions.append(btn("אשף תשתית הפרויקט",()=>projectSetup(p)));
-  head.append(actions); workspace.append(head);
-  const managers=make("section","","panel"); managers.append(make("h2","מנהלי מוצר"),btn("מנהל מוצר חדש",()=>edit("manager","מנהל מוצר חדש · Codex",[
-    field("name","שם"),options("scope","תחום אחריות",[["product","מוצר שלם"],["customer","לקוח באותו מוצר"]],"product"),field("customer","שם לקוח (בתחום לקוח)"),area("context","מטרות, צרכים וחריגים בתחום האחריות")
+  panel.append(make("h2","הגדרות ותקציב"),make("p","שימוש מדווח · "+used.tokens.toLocaleString("he")+" טוקנים · $"+(used.cents/100).toFixed(2),"muted"));
+  if(p.customer_voice) panel.append(make("h3","משוב והחלטות"),make("p",p.customer_voice,"detail"));
+  if(p.setup) panel.append(make("p","ענף "+p.setup.base_branch+" · "+setupNames.deployment[p.setup.deployment_mode]+" · "+
+    (p.setup.database_reference || setupNames.database[p.setup.database_mode]),"detail"));
+  const actions=make("div","","actions");
+  actions.append(btn("עריכת הגדרות",()=>productForm(p)),btn("אשף ריפו, פריסה ונתונים",()=>projectSetup(p)),
+    btn("רישום שימוש",()=>edit("usage","רישום שימוש מספק",[options("role","תפקיד",roles,"lead"),num("tokens","טוקנים שנצרכו"),num("cents","עלות בסנטים"),field("reference","מזהה ריצה / אסמכתה")])),
+    btn("חבילת עבודה לסוכן",()=>getPacket(p)));
+  panel.append(actions);
+  return panel;
+}
+function projectManagers(p) {
+  const section=make("section","","panel");
+  section.append(make("h2","מנהלי מוצר"),btn("מנהל מוצר חדש",()=>edit("manager","מנהל מוצר חדש",[
+    field("name","שם"),options("scope","תחום אחריות",[["product","מוצר שלם"],["customer","לקוח במוצר"]],"product"),
+    field("customer","שם הלקוח"),area("context","תחום אחריות ומטרות")
   ])));
-  const managerGrid=make("div","","grid actions");
-  for (const m of p.managers) {const c=make("article","","card");c.append(make("h3",m.name),make("p",m.customer||"מוצר שלם","muted"),make("p",m.context));managerGrid.append(c);}
-  managers.append(managerGrid);workspace.append(managers);
-  workspace.append(productRules(p));
-  workspace.append(agentRuns(p));
-  workspace.append(takeoverPanel(p));
-  if((p.content_mode && p.content_mode!=="off") || p.tasks.some(t=>t.area==="content")) workspace.append(contentBoard(p));
-  const boardSection=make("section","","panel"), board=make("div","","board");
-  boardSection.append(make("h2","פיצ׳רים ובאגים"));
-  for (const [key,title] of Object.entries(stages)) {
-    const lane=make("div","","lane");lane.append(make("h3",title));
-    const tasks=p.tasks.filter(t=>t.state===key && t.area!=="content").sort((a,b)=>a.priority-b.priority);
-    if (!tasks.length) lane.append(make("p","אין משימות","muted"));
-    for (const t of tasks) lane.append(taskCard(p,t));
+  const grid=make("div","","grid actions");
+  for(const m of p.managers) {
+    const card=make("article","","card");
+    card.append(make("h3",m.name),make("p",m.customer || "מוצר שלם","muted"),make("p",m.context));
+    grid.append(card);
+  }
+  section.append(grid);
+  return section;
+}
+function compactTask(p,t) {
+  const details=make("details","","collapsed-task");
+  details.append(make("summary",t.title),taskCard(p,t));
+  return details;
+}
+function projectBoard(p) {
+  const section=make("section","","panel"), title=make("div","","section-title");
+  title.append(make("h2","משימות"),btn("משימה חדשה",()=>form("משימה חדשה",[
+    field("title","מה צריך לעשות?"),area("brief","תיאור קצר")
+  ],async data=>{
+    state=await api("/change",{action:"task",product:p.id,area:"ui",priority:2,title:data.title,brief:data.brief.trim() || data.title});
+    byId("modal").close();
+    render();
+  },{submit:"פתיחת משימה"}),"primary"));
+  section.append(title);
+  const tasks=p.tasks.filter(t=>t.area!=="content").sort((a,b)=>a.priority-b.priority);
+  const board=make("div","","board");
+  const groups=[
+    ["לתכנון",["design","draft","ready"]],
+    ["בפיתוח",["running"]],
+    ["בבדיקה",["review"]],
+    ["הושלמו",["done"]]
+  ];
+  for(const [name,statuses] of groups){
+    const items=tasks.filter(t=>statuses.includes(t.state));
+    if(statuses[0]==="done" && !items.length) continue;
+    const lane=make("div","","lane");
+    lane.append(make("h3",name+" · "+items.length));
+    for(const item of items) lane.append(compactTask(p,item));
     board.append(lane);
   }
-  boardSection.append(board);workspace.append(boardSection);
+  if(!tasks.length) section.append(make("p","אין עדיין משימות. אפשר לפתוח משימה כאן או להעביר בקשה מתוך שיחת לקוח.","muted"));
+  else section.append(board);
+  const more=management("עוד אפשרויות",btn("פתיחת פיצ׳ר או באג עם שיוך",()=>addTask(p)));
+  if((p.content_mode && p.content_mode!=="off") || p.tasks.some(t=>t.area==="content")) more.append(contentBoard(p));
+  return [section,more];
+}
+function projectReleases(p) {
   const releaseSection=make("section","","panel");
   releaseSection.append(make("h2","גרסאות"),btn("מועמד לגרסה",()=>edit("release","מועמד לגרסה",[field("name","שם הגרסה"),field("items","מזהי משימות שמוזגו"),field("revision","SHA מלא של הגרסה המועמדת")])));
   const releaseGrid=make("div","","grid actions");
@@ -795,21 +884,79 @@ function render() {
     }
     releaseGrid.append(card);
   }
-  releaseSection.append(releaseGrid);workspace.append(releaseSection);
-  const log=make("details","","panel");log.append(make("summary","יומן פעילות"));
-  for (const e of state.events.filter(e=>e.product===p.id || !e.product).slice(0,30)) log.append(make("p",new Date(e.time).toLocaleString("he")+" · "+(actionNames[e.action]||e.action)+" "+e.task));
-  workspace.append(log);
+  releaseSection.append(releaseGrid);return releaseSection;
 }
-byId("newProduct").onclick=()=>projectSetup();
-byId("codexEntry").onclick=()=>{
-  if(!window.AgentHubAI.connected){connectCodex();return;}
-  const panel=byId("ceoAiPanel");
-  panel.open=true;
-  panel.scrollIntoView?.({block:"start"});
-};
-byId("ceoView").onclick=()=>{view="ceo";render();};
-byId("customerView").onclick=()=>{view="customer";render();};
-api("/state").then(data=>{state=data;selected=state.products[0]?.id;render();}).catch(error=>{byId("status").textContent=error.message;});
+function render() {
+  const overview=byId("overview"), workspace=byId("workspace");
+  const aiOpen=byId("ceoAiPanel")?.open;
+  const p=state.products.find(product=>product.id===selected);
+  byId("viewTitle").textContent=p?.name || "פרויקטים";
+  byId("viewSubtitle").textContent=p?projectStatus(p):"לוח מנכ״ל";
+  byId("ceoView").hidden=!p;
+  byId("newProduct").hidden=Boolean(p);
+  overview.replaceChildren();
+  workspace.replaceChildren();
+  if(p){
+    const nav=make("nav","","project-nav");
+    nav.setAttribute("aria-label","ניווט בפרויקט");
+    for(const [key,title] of Object.entries(projectTabs)){
+      const link=make("a",title,"project-tab");
+      link.href="#project/"+encodeURIComponent(p.id)+"/"+key;
+      link.onclick=event=>{
+        if(event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        navigate(p.id,key);
+      };
+      if(key===projectTab) link.setAttribute("aria-current","page");
+      nav.append(link);
+    }
+    overview.append(nav);
+    if(projectTab==="chats") workspace.append(projectChats(p));
+    if(projectTab==="board") workspace.append(...projectBoard(p));
+    if(projectTab==="details"){
+      const log=management("יומן פעילות");
+      for(const event of state.events.filter(e=>e.product===p.id).slice(0,30))
+        log.append(make("p",new Date(event.time).toLocaleString("he")+" · "+(actionNames[event.action] || event.action)+" "+event.task));
+      workspace.append(projectOverview(p),management("ניהול והגדרות",projectSettings(p),projectManagers(p),
+        productRules(p),takeoverPanel(p),agentRuns(p),projectReleases(p),companyStandards(),log));
+    }
+    return;
+  }
+  const grid=make("div","","grid home-projects");
+  for(const product of state.products){
+    const open=product.tasks.filter(t=>t.state!=="done").length;
+    const card=btn("",()=>navigate(product.id),"project-tile");
+    card.append(make("strong",product.name),make("span",projectStatus(product)+" · "+open+" משימות פתוחות"));
+    grid.append(card);
+  }
+  if(state.products.length) overview.append(grid);
+  else overview.append(make("p","פתח פרויקט כדי לראות את המשימות, השיחות ופרטי המוצר במקום אחד.","panel"));
+  if(window.AgentHubPages && !state.products.some(p=>p.project_profile?.repo==="https://github.com/guyergas/wordflow")){
+    const importRow=make("div","","actions");
+    importRow.append(btn("מלא את WordFlow מהריפו",event=>importWordflow(event.currentTarget),"quiet"));
+    overview.append(importRow);
+  }
+  const ceo=state.ceo ?? {};
+  const company=management("ניהול החברה",btn("יעדים וקיבולת פיתוח",()=>edit("ceo","יעדי מנכ״ל וקיבולת צוות",[
+    area("strategy","יעדים והחלטות עסקיות",ceo.strategy),
+    area("customer_voice","משוב ברמת החברה",ceo.customer_voice),
+    num("development_slots","מקומות פיתוח פעילים",state.development_portfolio.slots)
+  ])));
+  if(ceo.strategy) company.append(make("p",ceo.strategy,"detail"));
+  if(state.products.length) company.append(sharedDevelopment());
+  company.append(companyStandards());
+  if(window.AgentHubAI){
+    const chat=ceoAI();
+    chat.open=Boolean(aiOpen);
+    workspace.append(chat);
+  }
+  workspace.append(company);
+}
+byId("newProduct").onclick=()=>{if(state) newProject();};
+byId("ceoView").onclick=()=>navigate();
+window.addEventListener("popstate",readRoute);
+window.addEventListener("hashchange",readRoute);
+api("/state").then(data=>{state=data;readRoute();}).catch(error=>{byId("status").textContent=error.message;});
 setInterval(async()=>{
   if(!state || polling || byId("modal").open || !state.products.some(p=>(p.jobs ?? []).some(j=>j.status==="queued" || j.status==="running"))) return;
   polling=true;
