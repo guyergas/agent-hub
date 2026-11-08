@@ -332,6 +332,26 @@ def apply_domain_conclusion(state, product, action, data):
 
 def apply(state, data):
     action = required(data, "action")
+    if action == "ceo_ai_record":
+        items = data.get("items")
+        need(isinstance(items, list), "רשימת הצעות לא חוקית")
+        suggestions = []
+        for item in items[:6]:
+            if not isinstance(item, dict):
+                continue
+            product = next((p for p in state["products"] if p["id"] == value(item, "project")), None)
+            area, role = value(item, "area"), value(item, "role")
+            title, brief = value(item, "title"), value(item, "brief")
+            if not product or area not in ("ui", "backend", "content") or role not in ROLES or not title or not brief:
+                continue
+            manager = next((m["id"] for m in product["managers"] if m["id"] == value(item, "manager")), "")
+            if area == "content" and (not manager or product.get("content_mode", "off") == "off"):
+                continue
+            suggestions.append({"id": next_id(state, "U"), "project": product["id"], "manager": manager,
+                                "area": area, "role": role, "title": title[:300], "brief": brief[:5000]})
+        turns = state.setdefault("ceo_ai", [])
+        turns.append({"message": required(data, "message")[:12000], "reply": required(data, "reply")[:12000], "items": suggestions})
+        return
     if action == "ceo":
         ceo = state.setdefault("ceo", {})
         ceo.update({key: value(data, key) for key in ("strategy", "customer_voice")})
@@ -411,10 +431,19 @@ def apply(state, data):
     elif action in ("chat_open", "chat_send", "chat_forward"):
         task = apply_chat(state, product, action, data)
     elif action == "agent_run":
-        queue_job(state, product, required(data, "role"), task=task, manager=value(data, "manager"),
+        role = required(data, "role")
+        supports = getattr(runners, "supports", None)
+        need(not supports or supports(role, task), "סוג ההרצה הזה עדיין אינו מחובר")
+        queue_job(state, product, role, task=task, manager=value(data, "manager"),
                   release=value(data, "release"), rule_area=value(data, "rule_area"), request=value(data, "request"))
     elif action == "task":
         task = add_task(product, state, data, task["id"] if task else None)
+    elif action == "ceo_ai_accept":
+        item = lookup([item for turn in state.get("ceo_ai", []) for item in turn["items"]], required(data, "suggestion"))
+        need(item["project"] == product["id"] and not item.get("task"), "ההצעה כבר נפתחה או שייכת למוצר אחר")
+        task = add_task(product, state, {**item, "priority": 2})
+        task["suggested_role"] = item["role"]
+        item["task"] = task["id"]
     elif action == "priority":
         task["priority"] = number(data, "priority", 0, 4)
     elif action == "design_spec":
@@ -521,14 +550,14 @@ def apply(state, data):
         product["runs"].append({"role": role, "tokens": tokens, "cents": cents, "reference": reference})
     else:
         raise ValueError("פעולה לא מוכרת")
-    if action in ("task", "chat_forward") and task["manager"]:
+    if action in ("task", "chat_forward", "ceo_ai_accept") and task["manager"]:
         submit_domain_conclusion(state, product, "product", task["title"], task["brief"], task["id"], task["manager"])
     elif action == "design_spec":
         submit_domain_conclusion(state, product, "design", task["title"], task["design_spec"], task["id"], task["manager"])
     elif action == "plan":
         submit_domain_conclusion(state, product, "architecture", task["title"], task["plan"], task["id"], task["manager"])
     if runners.enabled():
-        if action in ("task", "chat_forward"):
+        if action in ("task", "chat_forward", "ceo_ai_accept"):
             first_role = {"design": "designer", "content": "content"}.get(task["state"], "architect")
             queue_job(state, product, first_role, task=task)
         elif action == "design_spec":
@@ -668,6 +697,9 @@ def content_can_run(task):
 def queue_job(state, product, role, task=None, manager="", release="", rule_area="", request="", chat="", takeover="", company_proposal="", company_area="", domain_conclusion=""):
     need(runners.enabled(), "הרצת הסוכנים מושבתת")
     need(role in ROLES, "תפקיד לא חוקי")
+    supports = getattr(runners, "supports", None)
+    if supports and not supports(role, task):
+        return
     if role in COMPANY_ROLES.values():
         need(COMPANY_ROLES.get(company_area) == role and (company_proposal or domain_conclusion), "תפקיד רוחבי מופעל ממסמך החברה")
     if manager:

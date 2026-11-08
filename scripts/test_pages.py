@@ -59,3 +59,24 @@ intake = result["payload"]["products"][-1]["takeover"]
 assert intake["transcript"] == "" and intake["scan"]["summary"] == "Detected product"
 assert intake["scan"]["files"] == ["README.md"] and intake["revision"] == "b"*40
 print("Repository scan intake passed")
+
+# Simulate a configured browser and verify the Codex-only dispatch boundary.
+def connected(path, **data):
+    global state
+    result = json.loads(web_request(path, json.dumps(data), json.dumps(state), True))
+    if "state" in result:
+        state = result["state"]
+    return result
+
+result = connected("/change", action="ceo_ai_record", message="Improve the landing page", reply="One proposal",
+                   items=[dict(project=product, manager=manager, role="designer", area="ui", title="Landing", brief="Clarify navigation")])
+suggestion = result["payload"]["ceo_ai"][0]["items"][0]
+assert connected("/change", action="ceo_ai_accept", product=product, suggestion=suggestion["id"])["payload"]
+assert "error" in connected("/change", action="ceo_ai_accept", product=product, suggestion=suggestion["id"])
+result = connected("/agent_claim")["payload"]["job"]
+assert "pre-implementation" in result["prompt"]
+result.pop("prompt")
+assert "payload" in connected("/agent_finish", **result, answer="Design notes", tokens=30)
+assert "error" in connected("/change", action="agent_run", role="lead", product=product)
+assert not any(job["provider"]=="Claude" for p in state["products"] for job in p.get("jobs", []))
+print("CEO intake and Codex-only browser queue passed")

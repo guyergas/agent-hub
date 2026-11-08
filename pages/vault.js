@@ -127,9 +127,9 @@
       for(let attempt=0; attempt<3; attempt++){
         const record = await readRecord(db);
         const state = await decrypt(record,key);
-        const result = JSON.parse(handle(path,JSON.stringify(data),JSON.stringify(state)));
+        const result = JSON.parse(handle(path,JSON.stringify(data),JSON.stringify(state),Boolean(window.AgentHubAI?.connected)));
         if(result.error) throw new Error(result.error);
-        if(path!=="/change") return result.payload;
+        if(!result.state || path==="/state") return result.payload;
         const next = await encrypt(result.state,key,record.salt,record.revision+1);
         if(await saveRecord(db,record,next)) return result.payload;
       }

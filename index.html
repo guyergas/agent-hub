@@ -24,6 +24,7 @@ Object.assign(actionNames,{chat_open:"שיחת לקוח נפתחה",chat_send:"�
 Object.assign(actionNames,{takeover_open:"קליטת פרויקט קיים החלה",takeover_brief:"תקציר מוצר אושר לסקירת קוד",takeover_retry:"סקירת קליטה הוכנסה לתור",takeover_approve:"בסיס הפרויקט אושר לניהול"});
 Object.assign(actionNames,{company_owner:"מונה מנהל תחום",company_propose:"הוגשה הצעה למסמך החברה",company_review:"סקירת חברה הוכנסה לתור",company_publish:"פורסמה גרסת חברה",company_adopt:"המוצר אימץ גרסת חברה"});
 Object.assign(actionNames,{domain_submit:"מסקנה הועברה למנהל התחום",domain_run:"סקירת מסקנה הוכנסה לתור",domain_decide:"המלצת מנהל התחום תועדה"});
+Object.assign(actionNames,{ceo_ai_accept:"הצעת המנכ״ל הפכה למשימה"});
 const byId = id => document.getElementById(id);
 const make = (tag, text="", cls="") => {
   const node = document.createElement(tag);
@@ -226,7 +227,8 @@ function getPacket(p,t,release,ruleArea,fixedRole) {
     const output=await api("/packet",target);
     const box=make("textarea","","packet"); box.value=output.packet; box.readOnly=true; box.setAttribute("aria-label","חבילת עבודה");
     byId("fields").replaceChildren(make("p","העתק את ההנחיות לכלי שמופיע בכותרת החבילה."),box);
-    byId("buttons").replaceChildren(...(state.providers?.enabled ? [btn("הרץ סוכן",async()=>{
+    const connected=state.providers?.enabled && (!state.providers.browser || !["lead","developer","qa"].includes(data.role));
+    byId("buttons").replaceChildren(...(connected ? [btn("הרץ סוכן",async()=>{
       try {state=await api("/change",{...target,action:"agent_run"});byId("modal").close();render();}
       catch(error){byId("error").textContent=error.message;}
     },"primary")] : []),btn("העתקה",async()=>{
@@ -594,6 +596,58 @@ function companyStandards() {
   section.append(grid);
   return section;
 }
+function ceoAI() {
+  const ai=window.AgentHubAI;
+  const section=make("details","","panel");
+  section.append(make("summary","שיחת מנכ״ל · Codex"));
+  const actions=make("div","","actions");
+  section.append(make("p",ai.connected?"ספר מה תרצה לקדם. Codex יציע למי להעביר ומה לפתוח בלוח.":"חבר מפתח API של OpenAI כדי להפעיל את שיחת המנכ״ל ואת סוכני Codex.","muted"));
+  if(!ai.connected){
+    actions.append(btn("חיבור Codex",()=>form("חיבור Codex",[
+      field("key","מפתח API של OpenAI","password")
+    ],async data=>{
+      if(!data.key.trim()) throw Error("נדרש מפתח API");
+      ai.connect(data.key);
+      byId("form").reset();
+      state=await api("/state");
+      byId("modal").close();
+      render();
+    },{intro:setupLink("פתיחת מסך מפתחות API","https://platform.openai.com/api-keys"),submit:"חיבור לחלון הזה"}),"primary"));
+  } else {
+    actions.append(btn("הודעה למצב מנכ״ל",()=>form("שיחת מנכ״ל · Codex",[
+      area("message","מה תרצה לשנות או להחליט?")
+    ],async data=>{
+      const message=data.message.trim();
+      if(!message || message.length>12000) throw Error("הזן הודעה באורך של עד 12,000 תווים");
+      byId("error").textContent="Codex מכין תשובה…";
+      const projects=state.products.map(p=>({id:p.id,name:p.name,context:p.context.slice(0,1500),
+        content_mode:p.content_mode ?? "off",managers:p.managers.map(m=>({id:m.id,name:m.name,customer:m.customer}))}));
+      const history=(state.ceo_ai ?? []).slice(-6).map(turn=>({message:turn.message,reply:turn.reply}));
+      const result=await ai.consult(message,history,projects,selected ?? "");
+      state=await api("/change",{action:"ceo_ai_record",message,reply:result.reply,items:result.items});
+      byId("modal").close();
+      render();
+    },{submit:"שלח ל־Codex"}),"primary"),btn("נתק מפתח",async()=>{
+      ai.disconnect();
+      state=await api("/state");
+      render();
+    }));
+  }
+  section.open=ai.connected;
+  section.append(actions);
+  for(const turn of (state.ceo_ai ?? []).slice(-12).reverse()){
+    const card=make("article","","card");
+    card.append(make("h3","אתה"),make("p",turn.message,"detail"),make("h3","Codex"),make("p",turn.reply,"detail"));
+    for(const item of turn.items){
+      const project=state.products.find(p=>p.id===item.project);
+      card.append(make("p",[project?.name,item.title,roleNames[item.role]].filter(Boolean).join(" · ")),make("p",item.brief,"detail"));
+      if(item.task) card.append(make("small","נפתחה משימה "+item.task));
+      else card.append(btn("פתח משימה בלוח",()=>edit("ceo_ai_accept","העברה ללוח · "+item.title,[],{product:item.project,suggestion:item.id})));
+    }
+    section.append(card);
+  }
+  return section;
+}
 function render() {
   const overview=byId("overview"), workspace=byId("workspace");
   byId("viewTitle").textContent=view==="ceo"?"לוח מנכ״ל":"מבט לקוח";
@@ -619,6 +673,7 @@ function render() {
   overview.append(tabs);
   if(state.products.length) overview.append(sharedDevelopment());
   overview.append(companyStandards());
+  if(window.AgentHubAI) overview.prepend(ceoAI());
   workspace.replaceChildren();
   const p=state.products.find(p=>p.id===selected);
   if (!p) {
@@ -704,5 +759,24 @@ setInterval(async()=>{
   } catch(error){byId("status").textContent=error.message;}
   finally{polling=false;}
 },2200);
+let browserRunnerBusy=false;
+if(window.AgentHubAI) setInterval(async()=>{
+  if(!state || !window.AgentHubAI.connected || browserRunnerBusy) return;
+  browserRunnerBusy=true;
+  try {
+    const {job}=await api("/agent_claim");
+    if(!job) return;
+    let result;
+    try {result=await window.AgentHubAI.run(job.prompt);}
+    catch(error){result={error:error.message};}
+    await api("/agent_finish",{id:job.id,product:job.product,started:job.started,...result});
+    if(!byId("modal").open){
+      const before=state;
+      const fresh=await api("/state");
+      if(state===before && !byId("modal").open){state=fresh;render();}
+    }
+  } catch(error){byId("status").textContent=error.message;}
+  finally{browserRunnerBusy=false;}
+},2400);
 </script>
 </body></html>
