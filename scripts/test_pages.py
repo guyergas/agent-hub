@@ -48,3 +48,14 @@ browser = call("/change", action="rules", product=product, slots=2,
                **{**setup, "database_mode":"browser"})["payload"]["products"][0]
 assert browser["setup"]["database_reference"] == ""
 print("Project setup metadata passed")
+
+# Scanned projects may be taken over without a conversation transcript.
+new = call("/change", action="product", name="Scanned", slots=2, repo="https://github.com/example/scanned")["payload"]["products"][-1]
+pid = new["id"]
+new_pm = call("/change", action="manager", product=pid, scope="product", name="PM", context="Intake")["payload"]["products"][-1]["managers"][0]["id"]
+result = call("/change", action="takeover_open", product=pid, manager=new_pm, revision="b"*40,
+              scan={"summary":"Detected product", "files":["README.md"], "design":"CSS"})
+intake = result["payload"]["products"][-1]["takeover"]
+assert intake["transcript"] == "" and intake["scan"]["summary"] == "Detected product"
+assert intake["scan"]["files"] == ["README.md"] and intake["revision"] == "b"*40
+print("Repository scan intake passed")

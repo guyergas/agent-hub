@@ -307,27 +307,45 @@ function takeoverPanel(p) {
   const managers=p.managers.filter(m=>m.scope==="product");
   section.append(make("h2","קליטת פרויקט קיים"));
   if(!intake){
-    if(p.checkout && managers.length) actions.append(btn("קלוט פרויקט קיים",()=>edit("takeover_open","קליטת פרויקט קיים",[
-      options("manager","מנהל המוצר",managers.map(m=>[m.id,m.name]),managers[0].id),
-      area("transcript","הדבק את שיחת המימוש או את הקטעים הרלוונטיים")
-    ]),"primary"));
-    else section.append(make("p","כדי לקלוט פרויקט, הגדר מאגר מקומי ומנהל מוצר שאחראי למוצר כולו.","muted"));
+    const scanner=window.AgentHubRepository;
+    if((scanner?p.repo:p.checkout) && managers.length){
+      const fields=[
+        options("manager","מנהל המוצר",managers.map(m=>[m.id,m.name]),managers[0].id),
+        area("transcript","שיחת מימוש או הערות נוספות (אופציונלי)")
+      ];
+      if(scanner) actions.append(btn("סרוק את הריפו וקלוט",()=>form("קליטת פרויקט קיים",fields,async data=>{
+        byId("error").textContent="סורק את קובצי הריפו…";
+        const scan=await scanner.scan(p.repo,p.setup?.base_branch);
+        state=await api("/change",{action:"takeover_open",product:p.id,...data,revision:scan.revision,scan});
+        byId("modal").close();
+        byId("status").textContent="הריפו נסרק ונשמר תקציר ראשוני";
+        render();
+      },{submit:"סרוק את הריפו",intro:make("p","מקור: "+p.repo+" · ה־commit מזוהה אוטומטית. קריאת קוד זמינה לריפו ציבורי.","detail muted")}),"primary"));
+      else actions.append(btn("קלוט פרויקט קיים",()=>edit("takeover_open","קליטת פרויקט קיים",fields),"primary"));
+    } else section.append(make("p","כדי לקלוט פרויקט, הגדר "+(scanner?"כתובת ריפו":"מאגר מקומי")+" ומנהל מוצר שאחראי למוצר כולו.","muted"));
     section.append(actions);
     return section;
   }
   const jobs=(p.jobs ?? []).filter(j=>j.takeover===intake.id);
   const last=role=>jobs.filter(j=>j.role===role).at(-1);
-  const statuses={brief:"מנהל המוצר מסכם את שיחת המימוש",audit:"הארכיטקט והמעצב סוקרים את קוד המקור",approved:"בסיס הפרויקט אושר לניהול"};
+  const statuses={brief:intake.scan?"הריפו נסרק · ממתין לאישור תקציר":"ממתין לסיכום המוצר",audit:intake.scan?"ממתין לאישור ממצאי ארכיטקטורה ועיצוב":"הארכיטקט והמעצב סוקרים את קוד המקור",approved:"בסיס הפרויקט אושר לניהול"};
   section.append(make("p",statuses[intake.status],"accent"),make("code",intake.revision));
+  if(intake.scan){
+    const evidence=make("details");
+    evidence.append(make("summary","קבצים שנסקרו · "+(intake.scan.files?.length ?? 0)),
+      make("p",intake.scan.files?.join("\n") || "","detail"));
+    if(intake.scan.truncated) evidence.append(make("p","עץ הקבצים הוגבל על ידי GitHub. המיפוי חלקי.","muted"));
+    section.append(evidence);
+  }
   if(intake.summary) section.append(make("h3","תקציר מוצר מאושר"),make("p",intake.summary,"detail"));
   if(intake.recommendations) section.append(make("h3","שינויים מוצעים ותוכנית מעבר"),make("p",intake.recommendations,"detail"));
   if(intake.status==="brief") actions.append(btn("אישור תקציר והעברה לסקירה",()=>edit("takeover_brief","אישור תקציר מוצר",[
-    area("summary","דרישות, החלטות, שאלות פתוחות והיקף הקליטה",last("product")?.answer)
+    area("summary","דרישות, החלטות, שאלות פתוחות והיקף הקליטה",last("product")?.answer || intake.scan?.summary)
   ]),"primary"));
   if(intake.status==="audit") actions.append(btn("אישור כללים ותוכנית מעבר",()=>edit("takeover_approve","אישור בסיס הפרויקט",[
-    area("architecture","כללי ארכיטקטורה לאישור",last("architect")?.answer),
-    area("design","כללי עיצוב לאישור",last("designer")?.answer),
-    area("recommendations","שינויים נדרשים לניהול החדש, סדר עדיפויות ודברים שנדחו")
+    area("architecture","כללי ארכיטקטורה לאישור",last("architect")?.answer || intake.scan?.architecture),
+    area("design","כללי עיצוב לאישור",last("designer")?.answer || intake.scan?.design),
+    area("recommendations","שינויים נדרשים לניהול החדש, סדר עדיפויות ודברים שנדחו",intake.scan?.recommendations)
   ]),"primary"));
   const activeRoles=intake.status==="brief"?["product"]:intake.status==="audit"?["architect","designer"]:[];
   if(state.providers?.enabled) for(const role of activeRoles) {

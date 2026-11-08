@@ -184,11 +184,20 @@ def apply_takeover(state, product, action, data):
         need(intake is None, "כבר יש קליטה למוצר")
         manager = lookup(product["managers"], required(data, "manager"))
         need(manager["scope"] == "product", "קליטת פרויקט דורשת מנהל מוצר האחראי למוצר כולו")
-        transcript = required(data, "transcript")
+        transcript = value(data, "transcript")
         need(len(transcript.encode()) <= 180000, "השיחה ארוכה מדי. הזן חלקים רלוונטיים או תקציר מאומת")
         checkout, revision = takeover_source(product, data)
         intake = {"id": next_id(state, "I"), "manager": manager["id"], "transcript": transcript,
                   "checkout": checkout, "revision": revision, "status": "brief"}
+        report = data.get("scan")
+        if isinstance(report, dict):
+            intake["scan"] = {key: value(report, key)[:12000] for key in (
+                "repo", "branch", "summary", "architecture", "design", "recommendations"
+            )}
+            files = report.get("files", [])
+            if isinstance(files, list):
+                intake["scan"]["files"] = [name[:400] for name in files[:40] if isinstance(name, str)]
+            intake["scan"]["truncated"] = report.get("truncated") is True
         product["takeover"] = intake
         roles = TAKEOVER_ROLES["brief"]
     else:
@@ -731,7 +740,8 @@ def job_prompt(state, product, job):
                    "company_standards": adopted_company_standards(state, product)}
         if role == "product":
             context["implementation_conversation"] = intake["transcript"]
-            instructions = "Turn the supplied implementation conversation into a product brief. Separate intended features, decisions, customer needs, open questions and unverified claims. Quote only short evidence when necessary."
+            context["repository_scan"] = intake.get("scan")
+            instructions = "Turn the repository evidence and any supplied implementation conversation into a product brief. Separate intended features, decisions, customer needs, open questions and unverified claims. Quote only short evidence when necessary."
         else:
             context["approved_product_brief"] = intake["summary"]
             instructions = {

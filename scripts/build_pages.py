@@ -60,15 +60,13 @@ def main():
     html = (ROOT / "index.html").read_text()
     html = html.replace('const token = "__HUB_TOKEN__";', "const token = null;")
     html = html.replace('    field("checkout","נתיב מקומי מוחלט למאגר (להרצת מפתחים)", "text",p?.checkout),\n', "")
-    html = html.replace("if(p.checkout && managers.length)", "if(p.repo && managers.length)")
-    html = html.replace('area("transcript","הדבק את שיחת המימוש או את הקטעים הרלוונטיים")', 'field("revision","SHA של גרסת המקור (40 תווים)"),\n      area("transcript","הדבק את שיחת המימוש או את הקטעים הרלוונטיים")')
-    html = html.replace("הגדר מאגר מקומי ומנהל מוצר", "הגדר כתובת מאגר ומנהל מוצר")
     html = html.replace("כדי לשלוח הודעות, הפעל את החיבור לסוכנים לפי ההוראות.", "בגרסת Pages אפשר להכין דרישה מהשיחה ולהעביר אותה ללוח. שליחה לסוכן דורשת חיבור ריצה.")
     html = html.replace("הרצה אוטומטית כבויה. הפעל את מחברי הסוכנים לפי ההוראות.", "הלוח הזה שומר מידע בדפדפן. להרצת סוכן השתמש בחבילת עבודה עד שיחובר תור ההרצות.")
-    html = html.replace('<script>\n"use strict";', '<script src="./runtime/pyodide.js"></script>\n<script src="./vault.js"></script>\n<script>\n"use strict";', 1)
+    html = html.replace('<script>\n"use strict";', '<script src="./runtime/pyodide.js"></script>\n<script src="./vault.js"></script>\n<script src="./repository-scan.js"></script>\n<script>\n"use strict";', 1)
     (DIST / "index.html").write_text(html)
     (DIST / "core.py").write_text(browser_core((ROOT / "hub.py").read_text()))
-    shutil.copyfile(ROOT / "pages" / "vault.js", DIST / "vault.js")
+    for name in ("vault.js", "repository-scan.js", "repository-reviews.json"):
+        shutil.copyfile(ROOT / "pages" / name, DIST / name)
     runtime = DIST / "runtime"
     runtime.mkdir()
     for name in ("pyodide.js", "pyodide.asm.js", "pyodide.asm.wasm", "pyodide-lock.json", "python_stdlib.zip"):
