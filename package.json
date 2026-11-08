@@ -1,0 +1,11 @@
+{
+  "name": "agent-hub-pages",
+  "private": true,
+  "scripts": {
+    "build": "python3 scripts/build_pages.py",
+    "test": "python3 scripts/test_pages.py && node --check pages/vault.js"
+  },
+  "dependencies": {
+    "pyodide": "0.27.7"
+  }
+}
