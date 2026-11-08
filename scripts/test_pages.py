@@ -80,3 +80,37 @@ assert "payload" in connected("/agent_finish", **result, answer="Design notes", 
 assert "error" in connected("/change", action="agent_run", role="lead", product=product)
 assert not any(job["provider"]=="Claude" for p in state["products"] for job in p.get("jobs", []))
 print("CEO intake and Codex-only browser queue passed")
+
+# Code review is required for both UI and backend changes, and design review
+# is requested by the shared reviewer on the specific revision.
+state = {"seq": 0, "products": [], "events": []}
+project = call("/change", action="product", name="Review", slots=2,
+               repo="https://github.com/example/review")["payload"]["products"][0]["id"]
+task = call("/change", action="task", product=project, title="UI", brief="Review", area="ui",
+            priority=1)["payload"]["products"][0]["tasks"][0]["id"]
+assert call("/change", action="design_spec", product=project, task=task, design_spec="Keep layout")["payload"]
+assert call("/change", action="plan", product=project, task=task, plan="Refactor UI module")["payload"]
+assert call("/change", action="start", product=project, task=task, owner="Developer")["payload"]
+review = dict(product=project, task=task, revision="a"*40, pr="https://github.com/example/review/pull/1",
+              preview="https://example.com/preview")
+assert connected("/change", action="review", **review)["payload"]
+jobs = state["products"][0]["jobs"]
+assert [j["role"] for j in jobs] == ["reviewer"]
+assert "error" in call("/change", action="check", role="designer", result="pass", evidence="Preview", **review)
+assert "סוקר קוד" in call("/change", action="done", merged="c"*40, **review)["error"]
+job = connected("/agent_claim")["payload"]["job"]
+assert job["role"] == "reviewer" and job["pr"] == review["pr"]
+assert connected("/agent_finish", **{k:job[k] for k in ("id","product","started")},
+                 answer="Layout changes need design", review={"outcome":"pass","design":"required"})["payload"]
+assert [j["role"] for j in state["products"][0]["jobs"]] == ["reviewer", "designer"]
+assert call("/change", action="check", role="qa", result="pass", evidence="Tests passed", **review)["payload"]
+assert "מעצב" in call("/change", action="done", merged="c"*40, **review)["error"]
+assert call("/change", action="check", role="designer", result="pass", evidence="Preview checked", **review)["payload"]
+new = {**review,"revision":"b"*40}
+assert call("/change", action="review", **new)["payload"]
+assert state["products"][0]["tasks"][0]["checks"] == {}
+assert "error" in call("/change", action="check", role="reviewer", result="pass", evidence="Old", design="not_needed", **review)
+assert call("/change", action="check", role="reviewer", result="pass", evidence="Diff reviewed", design="not_needed", **new)["payload"]
+assert call("/change", action="check", role="qa", result="pass", evidence="Tests passed", **new)["payload"]
+assert call("/change", action="done", merged="c"*40, **new)["payload"]
+print("Shared code review, conditional design referral, and revision reset passed")

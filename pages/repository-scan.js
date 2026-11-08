@@ -80,5 +80,32 @@
     return report;
   }
 
-  window.AgentHubRepository = {scan};
+  async function reviewDiff(pr, revision, repository) {
+    let url, repo;
+    try { url=new URL(pr); if(repository) repo=new URL(repository); } catch {}
+    const match=url?.pathname.match(/^\/([\w.-]+)\/([\w.-]+)\/pull\/(\d+)\/?$/);
+    if(url?.origin!=="https://github.com" || !match) throw Error("נדרש קישור ל־Pull Request ב־GitHub.");
+    if(repository && (repo?.origin!=="https://github.com" || repo.pathname.split("/").slice(1,3).join("/").replace(/\.git$/,"").toLowerCase()!==(match[1]+"/"+match[2]).toLowerCase()))
+      throw Error("ה־Pull Request אינו שייך לריפו של הפרויקט.");
+    const endpoint="repos/"+match[1]+"/"+match[2]+"/pulls/"+match[3];
+    const head=await github(endpoint);
+    if(head.head?.sha!==revision) throw Error("ראש ה־PR השתנה. הגש לסקירה את ה־SHA הנוכחי.");
+    if(head.changed_files<1 || head.changed_files>100) throw Error("היקף השינוי דורש סקירת קוד ידנית.");
+    const files=await github(endpoint+"/files?per_page=100");
+    const after=await github(endpoint);
+    if(after.head?.sha!==revision || after.base?.sha!==head.base?.sha)
+      throw Error("גרסת ה־PR השתנתה במהלך טעינת ה־diff.");
+    let size=0;
+    for(const file of files){
+      const lines=(file.patch ?? "").split("\n");
+      if(!file.patch || lines.filter(line=>line.startsWith("+")).length!==file.additions ||
+         lines.filter(line=>line.startsWith("-")).length!==file.deletions)
+        throw Error("ה־diff של GitHub חלקי. נדרשת סקירת קוד ידנית.");
+      size+=file.patch.length;
+    }
+    if(files.length!==head.changed_files || size>45000) throw Error("ה־diff גדול או חלקי. נדרשת סקירת קוד ידנית.");
+    return files.map(({filename,status,patch})=>({filename,status,patch}));
+  }
+
+  window.AgentHubRepository = {scan,reviewDiff};
 })();

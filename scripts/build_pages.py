@@ -43,7 +43,16 @@ def takeover_source(product, data):
 def browser_claim(state):
     now = time.time()
     changed = False
+    reviewer_busy = any(j["role"] == "reviewer" and j["status"] == "running" and now - j["started"] <= 160
+                        for p in state["products"] for j in p.get("jobs", []))
     for product in state["products"]:
+        for task in product["tasks"]:
+            if task["state"] == "review" and not task["checks"].get("reviewer") and not any(
+                j["role"] == "reviewer" and j["task"] == task["id"] and j["revision"] == task["revision"] and j.get("pr") == task["pr"]
+                for j in product.get("jobs", [])
+            ):
+                queue_job(state, product, "reviewer", task=task)
+                changed = True
         intake = product.get("takeover")
         if intake and intake.get("scan"):
             for role in TAKEOVER_ROLES.get(intake["status"], ()):
@@ -51,10 +60,12 @@ def browser_claim(state):
                     queue_job(state, product, role, manager=intake["manager"], takeover=intake["id"])
                     changed = True
         for job in product.get("jobs", []):
-            if job["status"] == "running" and now - job["started"] > 100:
+            if job["status"] == "running" and now - job["started"] > 160:
                 job.update(status="failed", error="הרצת הדפדפן נקטעה. אפשר להריץ שוב.")
                 changed = True
             if job["status"] != "queued" or job["provider"] != "Codex":
+                continue
+            if job["role"] == "reviewer" and reviewer_busy:
                 continue
             try:
                 limit = product["token_limit"]
@@ -65,7 +76,11 @@ def browser_claim(state):
                 changed = True
                 continue
             job.update(status="running", started=now)
-            return {"payload": {"job": {"id": job["id"], "product": product["id"], "started": now, "prompt": prompt}}, "state": state}
+            result = {"id": job["id"], "product": product["id"], "started": now, "prompt": prompt, "role": job["role"]}
+            if job["role"] == "reviewer":
+                job["prior_code_review"] = lookup(product["tasks"], job["task"])["checks"].get("reviewer")
+                result.update(pr=job["pr"], revision=job["revision"], repo=product["repo"])
+            return {"payload": {"job": result}, "state": state}
     return {"payload": {"job": None}, **({"state": state} if changed else {})}
 
 def browser_finish(state, data):
@@ -77,6 +92,18 @@ def browser_finish(state, data):
     need(bool(error or answer), "נדרשת תוצאת הרצה")
     tokens = number(data, "tokens", 0, 10000000)
     job.update(status="failed" if error else "done", error=error, answer=answer, tokens=tokens)
+    review = data.get("review")
+    if not error and job["role"] == "reviewer" and isinstance(review, dict):
+        task = lookup(product["tasks"], job["task"])
+        outcome = value(review, "outcome")
+        design = value(review, "design")
+        if task["checks"].get("reviewer", {}).get("design") == "required":
+            design = "required"
+        if (task["state"] == "review" and (task["revision"], task["pr"]) == (job["revision"], job["pr"])
+            and task["checks"].get("reviewer") == job.get("prior_code_review")):
+            if outcome in ("pass", "fail") and design in ("required", "not_needed", "undetermined") and not (outcome == "pass" and design == "undetermined"):
+                apply(state, {"action":"check", "product":product["id"], "task":task["id"], "role":"reviewer",
+                              "revision":job["revision"], "pr":job["pr"], "result":outcome, "evidence":answer, "design":design})
     if job["chat"]:
         chat = lookup(product["chats"], job["chat"])
         chat["messages"].append({"role": "system" if error else "manager", "text": error or answer})

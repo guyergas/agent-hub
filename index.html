@@ -15,7 +15,7 @@
 "use strict";
 const token = "__HUB_TOKEN__";
 const stages = {design:"אפיון עיצובי",draft:"תכנון ארכיטקטורה",ready:"מוכן או תלוי",running:"בפיתוח",review:"סקירה אחרי מימוש",done:"הושלם"};
-const roleNames = {product:"מנהל מוצר · Codex",content:"מנהל תוכן · Codex",architect:"ארכיטקט · Codex",designer:"מעצב · Codex",lead:"מנהל פיתוח · Claude",developer:"מפתח · Claude",qa:"בודק · Claude"};
+const roleNames = {product:"מנהל מוצר · Codex",content:"מנהל תוכן · Codex",architect:"ארכיטקט · Codex",designer:"מעצב · Codex",lead:"מנהל פיתוח · Claude",developer:"מפתח · Claude",reviewer:"סוקר קוד מרכזי · Codex",qa:"בודק · Claude"};
 const actionNames = {product:"מוצר נוצר",rules:"הגדרות מוצר עודכנו",rule_propose:"הוגשה הצעת כללים",rule_publish:"כללים נכנסו לתוקף",ceo:"יעדי מנכ״ל עודכנו",manager:"מנהל מוצר נוסף",task:"משימה נפתחה",priority:"עדיפות עודכנה",plan:"תוכנית ארכיטקטורה אושרה",start:"משימה שובצה",review:"גרסה הוגשה לסקירה",check:"סקירה נרשמה",done:"מיזוג תועד",release:"מועמד לגרסה נוצר",release_qa:"בדיקת גרסה נרשמה",release_approve:"גרסה אושרה",usage:"שימוש נרשם"};
 const ruleAreas = {architecture:["ארכיטקטורה","architect"],design:["מערכת עיצוב","designer"]};
 const companyAreas={design:"מנהל עיצוב ראשי",architecture:"ארכיטקט ראשי",product:"מנהל מוצר ראשי"};
@@ -240,11 +240,13 @@ function getPacket(p,t,release,ruleArea,fixedRole) {
   const external=t?.content_mode==="external";
   const contentReady=external?["content","content_review"].includes(t.state):t?.content_mode==="repository" && t.state==="running";
   const available = fixedRole || ruleRole ? roles.filter(([r])=>r===(fixedRole || ruleRole))
-    : t ? roles.filter(([r])=>(!external || r==="product" || r==="content") && (r!=="content" || contentReady) && (r!=="developer" || (t.state==="running" && !t.content_mode)) && (r!=="product" || t.manager) && (r!=="architect" || t.state!=="design"))
+    : t ? roles.filter(([r])=>(!external || r==="product" || r==="content") && (r!=="content" || contentReady) && (r!=="developer" || (t.state==="running" && !t.content_mode)) && (r!=="product" || t.manager) && (r!=="architect" || t.state!=="design")
+      && (r!=="reviewer" || t.state==="review")
+      && (r!=="designer" || t.state!=="review" || (t.checks.reviewer?.design==="required" && t.preview)))
     : release ? roles.filter(([r])=>r==="qa" || r==="lead")
     : roles.filter(([r])=>r==="lead" || r==="architect" || r==="designer" || (r==="product" && p.managers.length));
   form("חבילת עבודה לסוכן",[
-    options("role","תפקיד",available,fixedRole || ruleRole || (t ? (contentReady?"content":external?"product":t.state==="design"?"designer":"architect") : release ? "qa" : "lead")),
+    options("role","תפקיד",available,fixedRole || ruleRole || (t ? (contentReady?"content":external?"product":t.state==="design"?"designer":t.state==="review"?"reviewer":"architect") : release ? "qa" : "lead")),
     ...(!t && !release ? [options("manager",ruleArea?"מנהל המוצר השותף":"מנהל מוצר / לקוח (רק אם רלוונטי)",[["",ruleArea?"בחר מנהל מוצר":"ללא שיוך"],...p.managers.map(m=>[m.id,m.name])])] : []),
     area("request","הנחיה או בקשת לקוח לריצה הזו")
   ],async data=>{
@@ -456,9 +458,25 @@ function taskCard(p,t) {
     btn("משימת משנה",()=>addTask(p,t.id)));
   if (t.state==="ready" && !blocked.length) actions.append(btn("שיבוץ",()=>edit("start",t.content_mode==="repository"?"שיבוץ מנהל תוכן במאגר":"שיבוץ מפתח Claude",[field("owner","מזהה האחראי")],base),"primary"));
   if (t.state==="running" || t.state==="review") actions.append(btn("הגשה לסקירה",()=>edit("review","הגשת גרסה לסקירה",[field("revision","SHA מלא של ראש ה־PR","text",t.revision),field("pr","קישור Pull Request","url",t.pr),field("preview","קישור Preview","url",t.preview)],base)));
-  if (t.state==="review") actions.append(
-    btn("תוצאת סקירה",()=>edit("check","תוצאת סקירה",[options("role","סוקר",roles.filter(([r])=>r==="qa" || (r==="designer" && t.area==="ui")),"qa"),options("result","תוצאה",[["pass","עבר"],["fail","נכשל · פתיחת באג"]],"pass"),area("evidence","ראיות, צעדי שחזור ותוצאה")],{...base,revision:t.revision,preview:t.preview})),
-    btn("תיעוד מיזוג",()=>edit("done","תיעוד מיזוג אחרי אישורי הסקירה",[field("merged","SHA מלא של המיזוג")],{...base,revision:t.revision})));
+  if (t.state==="review") {
+    const review=t.checks.reviewer;
+    const reviewBase={...base,revision:t.revision,pr:t.pr,preview:t.preview};
+    const designLabels={required:t.preview?"הועבר למעצב":"הועבר למעצב · ממתין ל־Preview",not_needed:"אישור מעצב אינו נדרש",undetermined:"טרם הוחלט אם לערב מעצב"};
+    card.append(make("p",review ? designLabels[review.design] : "ממתין לסוקר הקוד", "muted"));
+    actions.append(
+      btn("תוצאת סקירת קוד",()=>edit("check","סקירת קוד · מנהל הפיתוח",[
+        options("result","תוצאת קוד",[["pass","אושר"],["fail","נדרשים תיקונים"]],review?.result ?? "fail"),
+        options("design","האם להפנות למעצב?",[["undetermined","טרם הוחלט"],["not_needed","אין צורך"],["required","נדרש אישור מעצב"]],review?.design ?? "undetermined"),
+        area("evidence","ממצאים או אסמכתה לסקירת ה־diff",review?.evidence)
+      ],{...reviewBase,role:"reviewer"})),
+      btn("תוצאת בדיקות",()=>edit("check","תוצאת בדיקות",[
+        options("result","תוצאה",[["pass","עבר"],["fail","נכשל · פתיחת באג"]],"pass"),area("evidence","ראיות, צעדי שחזור ותוצאה")
+      ],{...reviewBase,role:"qa"})));
+    if(review?.design==="required" && t.preview) actions.append(btn("תוצאת סקירת מעצב",()=>edit("check","סקירת המעצב שהתבקשה",[
+      options("result","תוצאה",[["pass","עבר"],["fail","נכשל · פתיחת באג"]],"pass"),area("evidence","מה נבדק ב־Preview")
+    ],{...reviewBase,role:"designer"})));
+    actions.append(btn("תיעוד מיזוג",()=>edit("done","תיעוד מיזוג אחרי אישורי הסקירה",[field("merged","SHA מלא של המיזוג")],{...base,revision:t.revision})));
+  }
   card.append(actions);
   return card;
 }
@@ -810,7 +828,12 @@ if(window.AgentHubAI) setInterval(async()=>{
     const {job}=await api("/agent_claim");
     if(!job) return;
     let result;
-    try {result=await window.AgentHubAI.run(job.prompt);}
+    try {
+      if(job.role==="reviewer"){
+        const diff=await window.AgentHubRepository.reviewDiff(job.pr,job.revision,job.repo);
+        result=await window.AgentHubAI.reviewCode(job.prompt,diff);
+      } else result=await window.AgentHubAI.run(job.prompt);
+    }
     catch(error){result={error:error.message};}
     await api("/agent_finish",{id:job.id,product:job.product,started:job.started,...result});
     if(!byId("modal").open){
