@@ -49,11 +49,12 @@ const area = (key,label,initial="") => field(key,label,"textarea",initial);
 const options = (key,label,opts,initial="") => field(key,label,"select",initial,opts);
 const roles = Object.entries(roleNames);
 const num = (key,label,initial=0) => field(key,label,"number",initial);
-function form(title, fields, onSubmit) {
+function form(title, fields, onSubmit, controls={}) {
   const modal = byId("modal");
   byId("dialogTitle").textContent = title;
   byId("error").textContent = "";
   byId("fields").replaceChildren();
+  if(controls.intro) byId("fields").append(controls.intro);
   for (const f of fields) {
     const label = make("label",f.label);
     const element = make(f.type === "textarea" || f.type === "select" ? f.type : "input");
@@ -64,9 +65,10 @@ function form(title, fields, onSubmit) {
     label.append(element);
     byId("fields").append(label);
   }
-  const submit = make("button","שמירה","primary");
+  const submit = make("button",controls.submit || "שמירה","primary");
   submit.type = "submit";
   byId("buttons").replaceChildren(submit,btn("סגירה",()=>modal.close()));
+  if(controls.back) byId("buttons").prepend(btn("חזרה",controls.back));
   byId("form").onsubmit = async event => {
     event.preventDefault();
     submit.disabled = true;
@@ -106,6 +108,93 @@ function productForm(p) {
     num("slots","מספר מפתחים במקביל",p?.slots ?? 2),
   ];
   edit(p?"rules":"product",p?"הגדרות מוצר ותקציב":"מוצר חדש",p?fields:[field("name","שם המוצר"),...fields]);
+}
+const setupNames = {
+  deployment:{pages:"GitHub Pages",other:"שירות פריסה אחר",none:"ללא פריסה כרגע"},
+  database:{browser:"אחסון בדפדפן",none:"ללא מסד נתונים",d1:"Cloudflare D1",other:"מסד נתונים אחר"}
+};
+function setupLink(label,url) {
+  const a=make("a",label,"badge");
+  a.href=url;a.target="_blank";a.rel="noopener noreferrer";
+  return a;
+}
+function githubRepoUrl(value) {
+  try {
+    const url=new URL(value);
+    if(url.origin==="https://github.com" && /^\/[\w.-]+\/[\w.-]+\/?$/.test(url.pathname))
+      return url.origin+url.pathname.replace(/\/$/,"").replace(/\.git$/,"");
+  } catch {}
+  return "";
+}
+function projectSetup(p) {
+  const draft={
+    name:p?.name || "", context:p?.context || "", repo:p?.repo || "", checkout:p?.checkout || "",
+    site_url:p?.site_url || "", preview_url:p?.preview_url || "",
+    repository_mode:p?.repo?"existing":"new",base_branch:"main",
+    deployment_mode:"pages",deployment_status:"pending",database_mode:"browser",
+    database_status:"pending",database_reference:"",...p?.setup
+  };
+  const statusOptions=[["pending","עדיין לא הושלם"],["ready","הושלם"]];
+  const names=["מאגר קוד","קונפיגורציה ופריסה","אחסון הנתונים","סקירה ושמירה"];
+  function show(step) {
+    const info=make("div","","card");
+    const linkRow=make("div","","actions");
+    const repo=githubRepoUrl(draft.repo);
+    let fields;
+    if(step===0){
+      info.append(make("p","למוצר חדש אפשר לפתוח ריפו ייעודי. ב־GitHub בחר בעלים ושם, קבע אם הקוד ציבורי או פרטי וסמן Add a README כדי להתחיל מענף קיים. לפרויקט קיים אפשר להדביק את כתובת הריפו שלו."));
+      linkRow.append(setupLink("פתיחת ריפו ב־GitHub","https://github.com/new"),
+        setupLink("מדריך פתיחת ריפו","https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-new-repository"));
+      fields=[...(!p?[field("name","שם הפרויקט","text",draft.name)]:[]),
+        options("repository_mode","מאגר קוד",[["new","ריפו חדש"],["existing","ריפו קיים"]],draft.repository_mode),
+        field("repo","כתובת הריפו · אפשר להשלים אחר כך","url",draft.repo),
+        ...(!window.AgentHubPages?[field("checkout","נתיב checkout מקומי","text",draft.checkout)]:[])];
+    } else if(step===1){
+      info.append(make("p","אם בחרת GitHub Pages, פתח בריפו Settings → Pages ובחר GitHub Actions כמקור. ודא שיש workflow שבודק ובונה את הפרויקט ומפרסם אותו מענף הבסיס. במסלול GitHub Free, Pages זמין לריפו ציבורי. לשירות אחר בחר בו את הריפו ואת הענף."));
+      if(repo) linkRow.append(setupLink("הגדרות Pages",repo+"/settings/pages"),setupLink("GitHub Actions",repo+"/actions"));
+      linkRow.append(setupLink("מדריך פריסה ב־Pages","https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site"));
+      fields=[field("base_branch","ענף בסיס","text",draft.base_branch),
+        options("deployment_mode","שירות פריסה",Object.entries(setupNames.deployment),draft.deployment_mode),
+        options("deployment_status","מצב הפריסה",statusOptions,draft.deployment_status),
+        field("site_url","כתובת האתר החי","url",draft.site_url),field("preview_url","כתובת סביבת בדיקות","url",draft.preview_url)];
+    } else if(step===2){
+      info.append(make("p","לאתר סטטי אפשר לבחור ללא מסד נתונים. אם הנתונים דרושים רק במכשיר אחד, אפשר לשמור אותם בדפדפן. Agent Hub ב־GitHub Pages משתמש בכספת מקומית מוצפנת, ולכן לא ביקשנו ממך לפתוח מסד נתונים בענן."),
+        make("p","אם משתמשים או מכשירים צריכים לשתף מידע, פתח מסד נתונים לפרויקט. לדוגמה, ב־Cloudflare צור מסד D1, חבר אותו ל־Worker בצד השרת והריץ את סכימת המוצר. שמור בלוח שם או קישור למסך הניהול. את פרטי הגישה הגדר בצד השרת."));
+      linkRow.append(setupLink("Cloudflare Dashboard","https://dash.cloudflare.com/"),setupLink("מדריך הקמת D1","https://developers.cloudflare.com/d1/get-started/"));
+      fields=[options("database_mode","אחסון הנתונים של הפרויקט",Object.entries(setupNames.database),draft.database_mode),
+        options("database_status","מצב הקמת האחסון",statusOptions,draft.database_status),
+        field("database_reference","שם מסד הנתונים או קישור לניהול · ללא פרטי גישה","text",draft.database_reference)];
+    } else {
+      info.append(make("p",[
+        "ריפו · "+(draft.repo || "ממתין להשלמה"),"ענף · "+draft.base_branch,
+        "פריסה · "+setupNames.deployment[draft.deployment_mode],"נתונים · "+setupNames.database[draft.database_mode]
+      ].join("\n"),"detail"),make("p","אפשר לשמור עכשיו ולחזור לאשף מכרטיס הפרויקט להשלמת שלבים."));
+      fields=[area("context","יעדי המוצר והקשר",draft.context),
+        ...(!p?[area("architecture","כללי ארכיטקטורה קיימים (אופציונלי)",draft.architecture),area("design","כללי עיצוב קיימים (אופציונלי)",draft.design)]:[])];
+    }
+    if(linkRow.childElementCount) info.append(linkRow);
+    form((step+1)+" מתוך "+names.length+" · "+names[step],fields,async data=>{
+      Object.assign(draft,data);
+      if(step===0 && !draft.name.trim()) throw Error("נדרש שם לפרויקט");
+      if(step===1 && !draft.base_branch.trim()) throw Error("נדרש ענף בסיס");
+      if(step===2 && ["d1","other"].includes(draft.database_mode) && draft.database_status==="ready" && !draft.database_reference.trim())
+        throw Error("הזן שם או קישור למסד הנתונים שהוקם");
+      if(step<names.length-1){show(step+1);return;}
+      state=await api("/change",{
+        ...draft,product:p?.id,action:p?"rules":"product",slots:p?.slots ?? 2,
+        token_limit:p?.token_limit ?? 0,budget_cents:p?.budget_cents ?? 0,
+        project_status:p?.project_status ?? "planning"
+      });
+      selected=p?.id ?? state.products.at(-1).id;
+      byId("modal").close();
+      byId("status").textContent=p?"תשתית הפרויקט עודכנה":"הפרויקט נוצר";
+      render();
+    },{intro:info,submit:step===names.length-1?"שמירת פרויקט":"המשך",back:step?()=>{
+      Object.assign(draft,Object.fromEntries(new FormData(byId("form"))));
+      show(step-1);
+    }:null});
+  }
+  show(0);
 }
 function taskArea(p,initial="ui") {
   const choices=[["ui","ממשק"],["backend","תשתית / שרת"]];
@@ -528,8 +617,19 @@ function render() {
   const rules=make("details");rules.append(make("summary","מאגר וקול הלקוחות"));
   for(const [label,content] of [["מאגר",p.repo],["קול הלקוחות",p.customer_voice]]) rules.append(make("h3",label),make("p",content||"טרם הוגדר","detail"));
   head.append(rules);
+  if(p.setup){
+    const summary=[
+      p.repo?"ריפו הוגדר":"ריפו ממתין להשלמה",
+      "ענף "+p.setup.base_branch,
+      "פריסה · "+setupNames.deployment[p.setup.deployment_mode]+(p.setup.deployment_mode==="none"?"":p.setup.deployment_status==="ready"?" · הושלמה":" · ממתינה"),
+      "נתונים · "+setupNames.database[p.setup.database_mode]+(["d1","other"].includes(p.setup.database_mode)?p.setup.database_status==="ready"?" · הוקם":" · ממתין":"")
+    ];
+    if(p.setup.database_reference) summary.push(p.setup.database_reference);
+    head.append(make("p",summary.join(" | "),"detail muted"));
+  }
   actions.append(btn("הגדרות ותקציב",()=>productForm(p)),btn("חבילה לסוכן",()=>getPacket(p)),btn("פתיחת משימה",()=>addTask(p),"primary"),
     btn("רישום שימוש",()=>edit("usage","רישום שימוש מספק",[options("role","תפקיד",roles,"lead"),num("tokens","טוקנים שנצרכו"),num("cents","עלות בסנטים"),field("reference","מזהה ריצה / אסמכתה")])));
+  actions.append(btn("אשף תשתית הפרויקט",()=>projectSetup(p)));
   head.append(actions); workspace.append(head);
   const managers=make("section","","panel"); managers.append(make("h2","מנהלי מוצר"),btn("מנהל מוצר חדש",()=>edit("manager","מנהל מוצר חדש · Codex",[
     field("name","שם"),options("scope","תחום אחריות",[["product","מוצר שלם"],["customer","לקוח באותו מוצר"]],"product"),field("customer","שם לקוח (בתחום לקוח)"),area("context","מטרות, צרכים וחריגים בתחום האחריות")
@@ -572,7 +672,7 @@ function render() {
   for (const e of state.events.filter(e=>e.product===p.id || !e.product).slice(0,30)) log.append(make("p",new Date(e.time).toLocaleString("he")+" · "+(actionNames[e.action]||e.action)+" "+e.task));
   workspace.append(log);
 }
-byId("newProduct").onclick=()=>productForm();
+byId("newProduct").onclick=()=>projectSetup();
 byId("ceoView").onclick=()=>{view="ceo";render();};
 byId("customerView").onclick=()=>{view="customer";render();};
 api("/state").then(data=>{state=data;selected=state.products[0]?.id;render();}).catch(error=>{byId("status").textContent=error.message;});

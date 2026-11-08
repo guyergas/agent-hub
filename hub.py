@@ -351,6 +351,20 @@ def apply(state, data):
             status = required(data, "project_status")
             need(status in ("planning", "active", "paused", "archived"), "סטטוס פרויקט לא חוקי")
             product["project_status"] = status
+        if "repository_mode" in data:
+            setup = {
+                key: required(data, key) for key in (
+                    "repository_mode", "base_branch", "deployment_mode",
+                    "deployment_status", "database_mode", "database_status"
+                )
+            }
+            need(setup["repository_mode"] in ("new", "existing"), "מסלול מאגר קוד לא חוקי")
+            need(setup["deployment_mode"] in ("pages", "other", "none"), "מסלול פריסה לא חוקי")
+            need(setup["database_mode"] in ("browser", "none", "d1", "other"), "סוג אחסון לא חוקי")
+            for key in ("deployment_status", "database_status"):
+                need(setup[key] in ("pending", "ready"), "מצב תשתית לא חוקי")
+            setup["database_reference"] = value(data, "database_reference") if setup["database_mode"] in ("d1", "other") else ""
+            product["setup"] = setup
         if action == "product":
             product.update({area: value(data, area) for area in RULE_OWNERS})
         if "content_mode" in data:

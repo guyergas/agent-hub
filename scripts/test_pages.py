@@ -37,3 +37,14 @@ assert "payload" in call("/change", action="design_spec", product=product, task=
 assert "Test spec" in call("/packet", product=product, task=task, role="architect")["payload"]["packet"]
 assert call("/state")["payload"]["development_portfolio"]["slots"] == 2
 print("Static dashboard rules passed")
+setup = dict(repository_mode="existing",base_branch="main",deployment_mode="pages",
+             deployment_status="pending",database_mode="d1",database_status="pending",
+             database_reference="Pilot database")
+configured = call("/change", action="rules", product=product, slots=2, **setup)["payload"]["products"][0]
+assert configured["setup"] == setup
+assert "error" in call("/change", action="rules", product=product, slots=2,
+                       **{**setup, "database_mode":"invalid"})
+browser = call("/change", action="rules", product=product, slots=2,
+               **{**setup, "database_mode":"browser"})["payload"]["products"][0]
+assert browser["setup"]["database_reference"] == ""
+print("Project setup metadata passed")

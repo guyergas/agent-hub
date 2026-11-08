@@ -96,3 +96,9 @@ AGENT_HUB_ENABLE_AGENTS=1 python3 hub.py
 
 - [GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages)
 - [פריסה דרך GitHub Actions](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)
+
+### אשף תשתית לפרויקט
+
+כל יצירת פרויקט נפתחת באשף. בוחרים מאגר חדש או קיים, מגדירים ענף בסיס ושירות פריסה, ובוחרים בין אחסון בדפדפן, אתר ללא מסד נתונים, Cloudflare D1 או מסד אחר. אפשר לסמן מה כבר הוקם ולשמור גם כששלבים עדיין ממתינים. האשף מדריך להגדרות הרלוונטיות, והבחירות מוצגות בכרטיס הפרויקט. כדי להשלים או לעדכן פרטים, פתח שוב את ״אשף תשתית הפרויקט״ מתוך הכרטיס.
+
+האשף שומר תיעוד. יצירת הריפו, הגדרת Pages או שירות אחר, והקמת מסד נתונים נעשות אצל הספק הנבחר. גרסת Agent Hub שמארחים ב-GitHub Pages שומרת את נתוני הלוח בדפדפן. מסד נתונים של מוצר שמוגדר באשף מיועד למוצר הזה, והגדרתו אינה מעבירה אליו את נתוני לוח המנכ״ל.
