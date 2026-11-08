@@ -90,7 +90,7 @@ AGENT_HUB_ENABLE_AGENTS=1 python3 hub.py
 1. העלה את תכולת תיקיית `agent-hub` למאגר GitHub ייעודי. תבנית הפריסה נמצאת ב-`.github/workflows/deploy.yml`. מאגר ונתוני מוצר קיימים נשארים במקומם.
 2. במאגר הניהול בחר Settings → Pages → Source → GitHub Actions.
 3. דחף ל-`main` או הרץ את ״Deploy Agent Hub to GitHub Pages״ ידנית. הבנייה מריצה בדיקות ומפרסמת רק את `dist`.
-4. פתח את הכתובת שמופיעה ב-Settings → Pages. בהפעלה ראשונה בחר משפט סיסמה באורך 12 תווים לפחות. אל תכניס אותו למאגר.
+4. פתח את הכתובת שמופיעה ב-Settings → Pages. בהפעלה ראשונה בחר סיסמה באורך 6 תווים לפחות, בלי דרישה לסוג תווים מסוים. אל תכניס אותו למאגר.
 
 לבדיקה מקומית של הבנייה, הרץ `npm ci --ignore-scripts`, אחר כך `npm test` ו-`npm run build`.
 

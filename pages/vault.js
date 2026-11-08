@@ -63,15 +63,15 @@
       const heading = document.createElement("h2");
       heading.textContent = existing ? "פתיחת לוח הניהול" : "יצירת כספת ללוח הניהול";
       const description = document.createElement("p");
-      description.textContent = "הנתונים נשמרים מוצפנים בדפדפן הזה. שמור את משפט הסיסמה במקום בטוח.";
+      description.textContent = "הנתונים נשמרים מוצפנים בדפדפן הזה. שמור את הסיסמה במקום בטוח.";
       const form = document.createElement("form");
       const label = document.createElement("label");
-      label.textContent = "משפט סיסמה";
+      label.textContent = "סיסמה (לפחות 6 תווים)";
       const input = document.createElement("input");
       input.type = "password";
       input.autocomplete = existing ? "current-password" : "new-password";
       input.required = true;
-      input.minLength = 12;
+      input.minLength = 6;
       label.append(input);
       const submit = document.createElement("button");
       submit.textContent = existing ? "פתיחה" : "יצירה";
@@ -100,7 +100,7 @@
           dialog.remove();
           resolve(key);
         } catch {
-          status.textContent = "פתיחת הכספת נכשלה. בדוק את משפט הסיסמה או את זמינות האחסון בדפדפן.";
+          status.textContent = "פתיחת הכספת נכשלה. בדוק את הסיסמה או את זמינות האחסון בדפדפן.";
           input.focus();
         } finally {
           submit.disabled = false;
