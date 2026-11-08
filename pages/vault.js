@@ -113,6 +113,8 @@
   async function initialize() {
     const db = await openDatabase();
     const key = await askForKey(db, await readRecord(db));
+    const state = await decrypt(await readRecord(db),key);
+    if(state.openai_key) window.AgentHubAI?.connect(state.openai_key);
     const py = await loadPyodide({indexURL:new URL("./runtime/", location.href).href});
     const core = await fetch("./core.py");
     if (!core.ok) throw new Error("לא ניתן לטעון את לוגיקת הלוח");
@@ -121,15 +123,31 @@
   }
 
   window.AgentHubPages = {
+    async rememberAIKey(value) {
+      unlockPromise ??= initialize();
+      const {db,key}=await unlockPromise;
+      for(let attempt=0; attempt<3; attempt++){
+        const record=await readRecord(db);
+        const state=await decrypt(record,key);
+        if(value) state.openai_key=value;
+        else delete state.openai_key;
+        const next=await encrypt(state,key,record.salt,record.revision+1);
+        if(await saveRecord(db,record,next)) return;
+      }
+      throw new Error("הלוח השתנה בחלון אחר. נסה שוב.");
+    },
     async request(path, data) {
       unlockPromise ??= initialize();
       const {db,key,handle} = await unlockPromise;
       for(let attempt=0; attempt<3; attempt++){
         const record = await readRecord(db);
         const state = await decrypt(record,key);
+        const savedKey=state.openai_key;
+        delete state.openai_key;
         const result = JSON.parse(handle(path,JSON.stringify(data),JSON.stringify(state),Boolean(window.AgentHubAI?.connected)));
         if(result.error) throw new Error(result.error);
         if(!result.state || path==="/state") return result.payload;
+        if(savedKey) result.state.openai_key=savedKey;
         const next = await encrypt(result.state,key,record.salt,record.revision+1);
         if(await saveRecord(db,record,next)) return result.payload;
       }

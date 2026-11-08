@@ -8,7 +8,7 @@
 </style>
 </head>
 <body>
-<header><div><div class="brand">AGENT HUB</div><h1 id="viewTitle">לוח מנכ״ל</h1><p class="muted" id="viewSubtitle">מוצרים, לקוחות, פיתוח וגרסאות</p></div><div class="row"><button id="ceoView" aria-pressed="true">מבט מנכ״ל</button><button id="customerView" aria-pressed="false">מבט לקוח</button><button class="primary" id="newProduct">מוצר חדש</button></div></header>
+<header><div><div class="brand">AGENT HUB</div><h1 id="viewTitle">לוח מנכ״ל</h1><p class="muted" id="viewSubtitle">מוצרים, לקוחות, פיתוח וגרסאות</p></div><div class="row"><button id="ceoView" aria-pressed="true">מבט מנכ״ל</button><button id="customerView" aria-pressed="false">מבט לקוח</button><button id="codexEntry" class="primary" hidden>חיבור Codex</button><button class="primary" id="newProduct">מוצר חדש</button></div></header>
 <main><p class="message" role="status" id="status"></p><section id="overview" class="panel"></section><section id="workspace"></section></main>
 <dialog id="modal"><h2 id="dialogTitle"></h2><form id="form"><div id="fields"></div><p id="error" class="error" role="alert"></p><div id="buttons" class="actions"></div></form></dialog>
 <script>
@@ -72,11 +72,17 @@ function form(title, fields, onSubmit, controls={}) {
   if(controls.back) byId("buttons").prepend(btn("חזרה",controls.back));
   byId("form").onsubmit = async event => {
     event.preventDefault();
+    if(submit.disabled) return;
     submit.disabled = true;
+    const label=submit.textContent;
+    if(controls.busy) submit.textContent=controls.busy;
     byId("error").textContent = "";
     try { await onSubmit(Object.fromEntries(new FormData(byId("form")))); }
-    catch (error) { byId("error").textContent = error.message; }
-    finally { submit.disabled = false; }
+    catch (error) {
+      byId("error").textContent = error.message || "הפעולה נכשלה. נסה שוב.";
+      byId("error").scrollIntoView?.({block:"nearest"});
+    }
+    finally { submit.disabled = false;submit.textContent=label; }
   };
   if (!modal.open) modal.showModal();
 }
@@ -122,8 +128,9 @@ function setupLink(label,url) {
 function githubRepoUrl(value) {
   try {
     const url=new URL(value);
-    if(url.origin==="https://github.com" && /^\/[\w.-]+\/[\w.-]+\/?$/.test(url.pathname))
-      return url.origin+url.pathname.replace(/\/$/,"").replace(/\.git$/,"");
+    const parts=url.pathname.match(/^\/([\w.-]+)\/([\w.-]+)(?:\/|$)/);
+    if(url.origin==="https://github.com" && parts)
+      return url.origin+"/"+parts[1]+"/"+parts[2].replace(/\.git$/,"");
   } catch {}
   return "";
 }
@@ -137,6 +144,22 @@ function projectSetup(p) {
   };
   const statusOptions=[["pending","עדיין לא הושלם"],["ready","הושלם"]];
   const names=["מאגר קוד","קונפיגורציה ופריסה","אחסון הנתונים","סקירה ושמירה"];
+  function openExisting() {
+    if(p) return false;
+    const repo=githubRepoUrl(draft.repo).toLowerCase();
+    const name=draft.name.trim().toLowerCase();
+    const existing=state.products.find(project=>repo && githubRepoUrl(project.repo).toLowerCase()===repo);
+    if(existing){
+      selected=existing.id;
+      byId("modal").close();
+      render();
+      byId("status").textContent=existing.name+" כבר בלוח. פתחתי את הכרטיס שלו.";
+      return true;
+    }
+    if(state.products.some(project=>project.name.trim().toLowerCase()===name))
+      throw Error("כבר קיים פרויקט בשם הזה. בחר שם אחר או פתח את הפרויקט הקיים מהלוח.");
+    return false;
+  }
   function show(step) {
     const info=make("div","","card");
     const linkRow=make("div","","actions");
@@ -177,10 +200,12 @@ function projectSetup(p) {
     form((step+1)+" מתוך "+names.length+" · "+names[step],fields,async data=>{
       Object.assign(draft,data);
       if(step===0 && !draft.name.trim()) throw Error("נדרש שם לפרויקט");
+      if(step===0 && openExisting()) return;
       if(step===1 && !draft.base_branch.trim()) throw Error("נדרש ענף בסיס");
       if(step===2 && ["d1","other"].includes(draft.database_mode) && draft.database_status==="ready" && !draft.database_reference.trim())
         throw Error("הזן שם או קישור למסד הנתונים שהוקם");
       if(step<names.length-1){show(step+1);return;}
+      if(openExisting()) return;
       state=await api("/change",{
         ...draft,product:p?.id,action:p?"rules":"product",slots:p?.slots ?? 2,
         token_limit:p?.token_limit ?? 0,budget_cents:p?.budget_cents ?? 0,
@@ -190,7 +215,7 @@ function projectSetup(p) {
       byId("modal").close();
       byId("status").textContent=p?"תשתית הפרויקט עודכנה":"הפרויקט נוצר";
       render();
-    },{intro:info,submit:step===names.length-1?"שמירת פרויקט":"המשך",back:step?()=>{
+    },{intro:info,submit:step===names.length-1?"שמירת פרויקט":"המשך",busy:step===names.length-1?"שומר פרויקט…":null,back:step?()=>{
       Object.assign(draft,Object.fromEntries(new FormData(byId("form"))));
       show(step-1);
     }:null});
@@ -596,23 +621,30 @@ function companyStandards() {
   section.append(grid);
   return section;
 }
+function connectCodex() {
+  form("חיבור Codex",[
+    field("key","מפתח API של OpenAI","password")
+  ],async data=>{
+    const key=data.key.trim();
+    if(!key) throw Error("נדרש מפתח API");
+    await window.AgentHubPages.rememberAIKey(key);
+    window.AgentHubAI.connect(key);
+    byId("form").reset();
+    state=await api("/state");
+    byId("modal").close();
+    render();
+    byId("status").textContent="מפתח Codex נשמר בכספת";
+  },{intro:setupLink("פתיחת מסך מפתחות API","https://platform.openai.com/api-keys"),submit:"חיבור ושמירה בכספת",busy:"שומר את החיבור…"});
+}
 function ceoAI() {
   const ai=window.AgentHubAI;
   const section=make("details","","panel");
+  section.id="ceoAiPanel";
   section.append(make("summary","שיחת מנכ״ל · Codex"));
   const actions=make("div","","actions");
   section.append(make("p",ai.connected?"ספר מה תרצה לקדם. Codex יציע למי להעביר ומה לפתוח בלוח.":"חבר מפתח API של OpenAI כדי להפעיל את שיחת המנכ״ל ואת סוכני Codex.","muted"));
   if(!ai.connected){
-    actions.append(btn("חיבור Codex",()=>form("חיבור Codex",[
-      field("key","מפתח API של OpenAI","password")
-    ],async data=>{
-      if(!data.key.trim()) throw Error("נדרש מפתח API");
-      ai.connect(data.key);
-      byId("form").reset();
-      state=await api("/state");
-      byId("modal").close();
-      render();
-    },{intro:setupLink("פתיחת מסך מפתחות API","https://platform.openai.com/api-keys"),submit:"חיבור לחלון הזה"}),"primary"));
+    actions.append(btn("חיבור Codex",connectCodex,"primary"));
   } else {
     actions.append(btn("הודעה למצב מנכ״ל",()=>form("שיחת מנכ״ל · Codex",[
       area("message","מה תרצה לשנות או להחליט?")
@@ -628,9 +660,12 @@ function ceoAI() {
       byId("modal").close();
       render();
     },{submit:"שלח ל־Codex"}),"primary"),btn("נתק מפתח",async()=>{
-      ai.disconnect();
-      state=await api("/state");
-      render();
+      try{
+        await window.AgentHubPages.rememberAIKey("");
+        ai.disconnect();
+        state=await api("/state");
+        render();
+      }catch(error){byId("status").textContent=error.message;}
     }));
   }
   section.open=ai.connected;
@@ -654,6 +689,8 @@ function render() {
   byId("viewSubtitle").textContent=view==="ceo"?"מוצרים, לקוחות, פיתוח וגרסאות":"שיחות לפי מוצר, לקוח ומנהל מוצר";
   byId("ceoView").setAttribute("aria-pressed",String(view==="ceo"));
   byId("customerView").setAttribute("aria-pressed",String(view==="customer"));
+  byId("codexEntry").hidden=!window.AgentHubAI || view==="customer";
+  byId("codexEntry").textContent=window.AgentHubAI?.connected?"שיחת מנכ״ל · Codex":"חיבור Codex";
   byId("newProduct").hidden=view==="customer";
   if(view==="customer"){renderCustomer(overview,workspace);return;}
   overview.replaceChildren(make("h2","תמונת מצב"));
@@ -746,6 +783,12 @@ function render() {
   workspace.append(log);
 }
 byId("newProduct").onclick=()=>projectSetup();
+byId("codexEntry").onclick=()=>{
+  if(!window.AgentHubAI.connected){connectCodex();return;}
+  const panel=byId("ceoAiPanel");
+  panel.open=true;
+  panel.scrollIntoView?.({block:"start"});
+};
 byId("ceoView").onclick=()=>{view="ceo";render();};
 byId("customerView").onclick=()=>{view="customer";render();};
 api("/state").then(data=>{state=data;selected=state.products[0]?.id;render();}).catch(error=>{byId("status").textContent=error.message;});
